@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, Edit3, KeyRound } from "lucide-react";
+import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, Edit3 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -22,9 +22,9 @@ import { Label } from "@/components/ui/label";
 const items = [
   { icon: CreditCard, label: "Payment & subscription", to: "#" },
   { icon: MapPin, label: "Saved locations", to: "#" },
-  { icon: Bell, label: "Notifications", to: "#" },
-  { icon: Shield, label: "Privacy & security", to: "#" },
-  { icon: HelpCircle, label: "Help & support", to: "#" },
+  { icon: Bell, label: "Notifications", to: "/account/notifications" },
+  { icon: Shield, label: "Privacy & security", to: "/account/privacy" },
+  { icon: HelpCircle, label: "Help & support", to: "/account/help" },
 ];
 
 const Account = () => {
@@ -40,10 +40,6 @@ const Account = () => {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editCampus, setEditCampus] = useState("");
-
-  // Password Update State
-  const [editPasswordOpen, setEditPasswordOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -109,27 +105,6 @@ const Account = () => {
       setEditProfileOpen(false);
     } catch (error) {
       toast.error("Failed to update profile");
-      console.error(error);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast.success("Password updated successfully");
-      setEditPasswordOpen(false);
-      setNewPassword("");
-    } catch (error) {
-      toast.error("Failed to update password");
       console.error(error);
     } finally {
       setBusy(false);
@@ -261,42 +236,6 @@ const Account = () => {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         ))}
-
-        {/* Password Update Dialog integrated into the list */}
-        <Dialog open={editPasswordOpen} onOpenChange={setEditPasswordOpen}>
-          <DialogTrigger asChild>
-            <button className="w-full flex items-center gap-4 p-4 transition hover:bg-secondary/30">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-hairline">
-                <KeyRound className="h-4 w-4" />
-              </div>
-              <span className="flex-1 text-sm text-left">Update Password</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Update Password</DialogTitle>
-              <DialogDescription>
-                Enter a new password for your account.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleUpdatePassword} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? "Updating..." : "Update Password"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <Button onClick={handleSignOut} variant="outline" size="lg" className="w-full">

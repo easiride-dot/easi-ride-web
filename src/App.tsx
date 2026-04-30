@@ -15,6 +15,9 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Account from "./pages/Account.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Checkout from "./pages/Checkout.tsx";
+import Notifications from "./pages/Notifications.tsx";
+import PrivacySecurity from "./pages/PrivacySecurity.tsx";
+import HelpSupport from "./pages/HelpSupport.tsx";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +44,9 @@ const App = () => (
                 <Route path="/request" element={<Request />} />
                 <Route path="/matching/:id" element={<Matching />} />
                 <Route path="/account" element={<Account />} />
+                <Route path="/account/notifications" element={<Notifications />} />
+                <Route path="/account/privacy" element={<PrivacySecurity />} />
+                <Route path="/account/help" element={<HelpSupport />} />
                 {/* Admin panel has been moved to a separate project */}
               </Route>
               <Route path="*" element={<NotFound />} />
