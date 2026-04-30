@@ -1,13 +1,23 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload } from "lucide-react";
+import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, Edit3, KeyRound } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { uploadStudentId } from "@/lib/studentIdUpload";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const items = [
   { icon: CreditCard, label: "Payment & subscription", to: "#" },
@@ -23,6 +33,25 @@ const Account = () => {
   const { profile, refresh } = useProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingId, setUploadingId] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Profile Edit State
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editCampus, setEditCampus] = useState("");
+
+  // Password Update State
+  const [editPasswordOpen, setEditPasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    if (profile) {
+      setEditName(profile.full_name || "");
+      setEditPhone(profile.phone || "");
+      setEditCampus(profile.campus || "");
+    }
+  }, [profile]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -61,6 +90,52 @@ const Account = () => {
     }
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: editName,
+          phone: editPhone,
+          campus: editCampus,
+        })
+        .eq("id", user.id);
+      if (error) throw error;
+      await refresh();
+      toast.success("Profile updated successfully");
+      setEditProfileOpen(false);
+    } catch (error) {
+      toast.error("Failed to update profile");
+      console.error(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success("Password updated successfully");
+      setEditPasswordOpen(false);
+      setNewPassword("");
+    } catch (error) {
+      toast.error("Failed to update password");
+      console.error(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const displayName = profile?.full_name?.trim() || user?.email?.split("@")[0] || "Student";
   const initial = displayName.charAt(0).toUpperCase();
   const verificationStatus = profile?.verification_status ?? "pending";
@@ -68,15 +143,73 @@ const Account = () => {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <div className="glass-card flex items-center gap-4 rounded-3xl p-6">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-foreground text-background font-display text-2xl font-semibold">
+      <div className="glass-card relative flex items-center gap-4 rounded-3xl p-6">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-foreground text-background font-display text-2xl font-semibold">
           {initial}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-8">
           <h1 className="font-display text-xl font-semibold truncate">{displayName}</h1>
           <p className="truncate text-sm text-muted-foreground">{profile?.phone || user?.email}</p>
+          {profile?.campus && (
+            <p className="truncate text-xs text-muted-foreground mt-1">{profile.campus}</p>
+          )}
         </div>
-        <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider ${badge.className}`}>
+        <div className="absolute top-6 right-6">
+          <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                <Edit3 className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Profile</DialogTitle>
+                <DialogDescription>
+                  Update your personal details. Drivers will use this to contact you.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleUpdateProfile} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="e.g. 076123456"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="campus">Campus</Label>
+                  <select
+                    id="campus"
+                    value={editCampus}
+                    onChange={(e) => setEditCampus(e.target.value)}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Select a campus</option>
+                    <option value="Fourah Bay College">Fourah Bay College</option>
+                    <option value="IPAM Tower Hill">IPAM Tower Hill</option>
+                    <option value="Njala University">Njala University</option>
+                    <option value="Limkokwing">Limkokwing</option>
+                  </select>
+                </div>
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <span className={`absolute bottom-[-10px] left-8 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider ${badge.className}`}>
           <badge.icon className="h-3 w-3" />
           {badge.label}
         </span>
@@ -126,6 +259,42 @@ const Account = () => {
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
         ))}
+
+        {/* Password Update Dialog integrated into the list */}
+        <Dialog open={editPasswordOpen} onOpenChange={setEditPasswordOpen}>
+          <DialogTrigger asChild>
+            <button className="w-full flex items-center gap-4 p-4 transition hover:bg-secondary/30">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-hairline">
+                <KeyRound className="h-4 w-4" />
+              </div>
+              <span className="flex-1 text-sm text-left">Update Password</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Update Password</DialogTitle>
+              <DialogDescription>
+                Enter a new password for your account.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdatePassword} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy ? "Updating..." : "Update Password"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Button onClick={handleSignOut} variant="outline" size="lg" className="w-full">
