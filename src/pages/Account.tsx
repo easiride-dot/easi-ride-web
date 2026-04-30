@@ -153,8 +153,14 @@ const Account = () => {
           {profile?.campus && (
             <p className="truncate text-xs text-muted-foreground mt-1">{profile.campus}</p>
           )}
+          <div className="mt-3">
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider ${badge.className}`}>
+              <badge.icon className="h-3 w-3" />
+              {badge.label}
+            </span>
+          </div>
         </div>
-        <div className="absolute top-6 right-6">
+        <div className="absolute top-4 right-4">
           <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
@@ -209,10 +215,6 @@ const Account = () => {
             </DialogContent>
           </Dialog>
         </div>
-        <span className={`absolute bottom-[-10px] left-8 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider ${badge.className}`}>
-          <badge.icon className="h-3 w-3" />
-          {badge.label}
-        </span>
       </div>
 
       <div className="glass-card rounded-2xl p-5">
