@@ -14,9 +14,19 @@ const toMinorUnits = (amount: number) => Math.round(amount * 100);
 
 const getEnv = (name: string) => {
   const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}`);
+  if (!value) throw new SetupError(`Missing ${name}`);
   return value;
 };
+
+class SetupError extends Error {
+  status = 500;
+}
+
+const isMissingPaymentAttemptsTable = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: string }).code === "42P01";
 
 const getAppUrl = (req: { headers: Record<string, string | string[] | undefined> }) => {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
@@ -95,13 +105,20 @@ export default async function handler(req: any, res: any) {
       metadata: { source: "student_checkout" },
     });
 
-    if (attemptError) throw attemptError;
+    if (attemptError) {
+      if (isMissingPaymentAttemptsTable(attemptError)) {
+        return res.status(500).json({ error: "Payment setup is incomplete. Apply the payment_attempts Supabase migration." });
+      }
+
+      throw attemptError;
+    }
 
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${getEnv("MONIME_ACCESS_TOKEN")}`,
         "Monime-Space-Id": getEnv("MONIME_SPACE_ID"),
+        "Monime-Version": "caph.2025-08-23",
         "Idempotency-Key": crypto.randomUUID(),
         "Content-Type": "application/json",
       },
@@ -139,7 +156,9 @@ export default async function handler(req: any, res: any) {
         .update({ status: "failed", monime_status: monimeData?.result?.status ?? null })
         .eq("order_id", orderId);
 
-      return res.status(502).json({ error: "Could not create Monime checkout session" });
+      return res.status(502).json({
+        error: monimeData?.messages?.[0] || "Could not create Monime checkout session",
+      });
     }
 
     await supabase
@@ -159,6 +178,10 @@ export default async function handler(req: any, res: any) {
     });
   } catch (error) {
     console.error("Monime checkout error:", error);
+    if (error instanceof SetupError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+
     return res.status(500).json({ error: "Unable to start payment" });
   }
 }

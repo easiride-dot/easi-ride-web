@@ -7,9 +7,19 @@ const verifySchema = z.object({
 
 const getEnv = (name: string) => {
   const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}`);
+  if (!value) throw new SetupError(`Missing ${name}`);
   return value;
 };
+
+class SetupError extends Error {
+  status = 500;
+}
+
+const isMissingPaymentAttemptsTable = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: string }).code === "42P01";
 
 const getAuthToken = (authorization?: string | string[]) => {
   const value = Array.isArray(authorization) ? authorization[0] : authorization;
@@ -50,7 +60,13 @@ export default async function handler(req: any, res: any) {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (attemptError) throw attemptError;
+    if (attemptError) {
+      if (isMissingPaymentAttemptsTable(attemptError)) {
+        return res.status(500).json({ error: "Payment setup is incomplete. Apply the payment_attempts Supabase migration." });
+      }
+
+      throw attemptError;
+    }
     if (!attempt?.monime_session_id) return res.status(404).json({ error: "Payment attempt not found" });
 
     if (attempt.status === "completed" && attempt.subscription_id) {
@@ -61,12 +77,15 @@ export default async function handler(req: any, res: any) {
       headers: {
         Authorization: `Bearer ${getEnv("MONIME_ACCESS_TOKEN")}`,
         "Monime-Space-Id": getEnv("MONIME_SPACE_ID"),
+        "Monime-Version": "caph.2025-08-23",
       },
     });
 
     const monimeData = await monimeResponse.json().catch(() => null);
     if (!monimeResponse.ok || !monimeData?.result?.status) {
-      return res.status(502).json({ error: "Could not verify Monime checkout session" });
+      return res.status(502).json({
+        error: monimeData?.messages?.[0] || "Could not verify Monime checkout session",
+      });
     }
 
     const monimeStatus = monimeData.result.status as string;
@@ -134,6 +153,10 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({ status: "completed", subscriptionId: subscription.id });
   } catch (error) {
     console.error("Monime verification error:", error);
+    if (error instanceof SetupError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+
     return res.status(500).json({ error: "Unable to verify payment" });
   }
 }
