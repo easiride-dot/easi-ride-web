@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Account from "./pages/Account.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Checkout from "./pages/Checkout.tsx";
+import CheckoutComplete from "./pages/CheckoutComplete.tsx";
 import Notifications from "./pages/Notifications.tsx";
 import PrivacySecurity from "./pages/PrivacySecurity.tsx";
 import HelpSupport from "./pages/HelpSupport.tsx";
@@ -45,6 +46,7 @@ const App = () => (
               >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/checkout/:plan" element={<Checkout />} />
+                <Route path="/checkout/complete" element={<CheckoutComplete />} />
                 <Route path="/request" element={<Request />} />
                 <Route path="/matching/:id" element={<Matching />} />
                 <Route path="/account" element={<Account />} />

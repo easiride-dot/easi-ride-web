@@ -1,0 +1,139 @@
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+const verifySchema = z.object({
+  orderId: z.string().trim().min(1).max(255),
+});
+
+const getEnv = (name: string) => {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+};
+
+const getAuthToken = (authorization?: string | string[]) => {
+  const value = Array.isArray(authorization) ? authorization[0] : authorization;
+  const match = value?.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] ?? null;
+};
+
+export default async function handler(req: any, res: any) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const token = getAuthToken(req.headers.authorization);
+    if (!token) return res.status(401).json({ error: "Missing auth token" });
+
+    const parsed = verifySchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
+
+    const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token);
+
+    if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
+
+    const { data: attempt, error: attemptError } = await supabase
+      .from("payment_attempts")
+      .select("*")
+      .eq("order_id", parsed.data.orderId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (attemptError) throw attemptError;
+    if (!attempt?.monime_session_id) return res.status(404).json({ error: "Payment attempt not found" });
+
+    if (attempt.status === "completed" && attempt.subscription_id) {
+      return res.status(200).json({ status: "completed", subscriptionId: attempt.subscription_id });
+    }
+
+    const monimeResponse = await fetch(`https://api.monime.io/v1/checkout-sessions/${attempt.monime_session_id}`, {
+      headers: {
+        Authorization: `Bearer ${getEnv("MONIME_ACCESS_TOKEN")}`,
+        "Monime-Space-Id": getEnv("MONIME_SPACE_ID"),
+      },
+    });
+
+    const monimeData = await monimeResponse.json().catch(() => null);
+    if (!monimeResponse.ok || !monimeData?.result?.status) {
+      return res.status(502).json({ error: "Could not verify Monime checkout session" });
+    }
+
+    const monimeStatus = monimeData.result.status as string;
+    const mappedStatus = ["completed", "cancelled", "expired"].includes(monimeStatus)
+      ? monimeStatus
+      : "pending";
+
+    if (mappedStatus !== "completed") {
+      await supabase
+        .from("payment_attempts")
+        .update({ status: mappedStatus, monime_status: monimeStatus })
+        .eq("id", attempt.id);
+
+      return res.status(200).json({ status: mappedStatus });
+    }
+
+    const { data: existingSubscription } = await supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .gt("end_date", new Date().toISOString())
+      .maybeSingle();
+
+    if (existingSubscription) {
+      await supabase
+        .from("payment_attempts")
+        .update({
+          status: "completed",
+          monime_status: monimeStatus,
+          subscription_id: existingSubscription.id,
+        })
+        .eq("id", attempt.id);
+
+      return res.status(200).json({ status: "completed", subscriptionId: existingSubscription.id });
+    }
+
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 7);
+
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .insert({
+        user_id: user.id,
+        plan_type: attempt.plan_type,
+        status: "active",
+        end_date: endDate.toISOString(),
+        rides_used: 0,
+        rides_limit: 14,
+      })
+      .select("id")
+      .single();
+
+    if (subscriptionError) throw subscriptionError;
+
+    await supabase
+      .from("payment_attempts")
+      .update({
+        status: "completed",
+        monime_status: monimeStatus,
+        subscription_id: subscription.id,
+      })
+      .eq("id", attempt.id);
+
+    return res.status(200).json({ status: "completed", subscriptionId: subscription.id });
+  } catch (error) {
+    console.error("Monime verification error:", error);
+    return res.status(500).json({ error: "Unable to verify payment" });
+  }
+}

@@ -104,6 +104,60 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_attempts: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json
+          monime_order_number: string | null
+          monime_session_id: string | null
+          monime_status: string | null
+          order_id: string
+          plan_type: string
+          redirect_url: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          monime_order_number?: string | null
+          monime_session_id?: string | null
+          monime_status?: string | null
+          order_id: string
+          plan_type: string
+          redirect_url?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          monime_order_number?: string | null
+          monime_session_id?: string | null
+          monime_status?: string | null
+          order_id?: string
+          plan_type?: string
+          redirect_url?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rides: {
         Row: {
           created_at: string

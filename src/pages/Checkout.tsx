@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ const Checkout = () => {
   const title = isShared ? "Shared Plan" : "Solo Plan";
   const isVerified = profile?.verification_status === "approved";
 
-  const handlePay = async (method: string) => {
+  const handlePay = async () => {
     if (!user) {
       toast.error("Please sign in first");
       navigate("/auth");
@@ -35,50 +35,33 @@ const Checkout = () => {
     }
 
     setBusy(true);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    // Check for existing active subscription
-    const { data: existing } = await supabase
-      .from("subscriptions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .gt("end_date", new Date().toISOString())
-      .maybeSingle();
-
-    if (existing) {
-      toast.error("You already have an active subscription");
-      setBusy(false);
-      navigate("/dashboard");
-      return;
-    }
-    
-    // Simulate payment delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Calculate end date (7 days from now)
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 7);
-
-    const { error } = await supabase
-      .from("subscriptions")
-      .insert({
-        user_id: user.id,
-        plan_type: isShared ? "shared" : "solo",
-        status: "active",
-        end_date: endDate.toISOString(),
-        rides_used: 0,
-        rides_limit: 14 // 2 rides a day
+      const response = await fetch("/api/monime-create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ plan: isShared ? "shared" : "solo" }),
       });
 
-    setBusy(false);
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.redirectUrl) {
+        toast.error(result?.error || "Unable to start payment");
+        setBusy(false);
+        return;
+      }
 
-    if (error) {
-      toast.error("Something went wrong processing your payment");
-      return;
+      window.location.href = result.redirectUrl;
+    } catch (error) {
+      toast.error("Unable to start payment");
+      console.error(error);
+      setBusy(false);
     }
-
-    toast.success(`Payment successful via ${method}`);
-    navigate("/dashboard");
   };
 
   return (
@@ -132,32 +115,25 @@ const Checkout = () => {
               </div>
 
               <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-4">Select Payment Method</p>
-                
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-4">Payment</p>
                 <Button 
                   variant="outline" 
-                  className="w-full h-14 justify-start px-6 bg-[#FF6600]/10 hover:bg-[#FF6600]/20 border-[#FF6600]/30 text-foreground"
+                  className="w-full h-14 justify-start px-6"
                   disabled={busy}
-                  onClick={() => handlePay("Orange Money")}
+                  onClick={handlePay}
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#FF6600] flex items-center justify-center mr-3 text-white font-bold text-xs">OM</div>
-                  <span className="flex-1 text-left font-medium">Pay with Orange Money</span>
-                </Button>
-
-                <Button 
-                  variant="outline" 
-                  className="w-full h-14 justify-start px-6 bg-[#E3000F]/10 hover:bg-[#E3000F]/20 border-[#E3000F]/30 text-foreground"
-                  disabled={busy}
-                  onClick={() => handlePay("Afrimoney")}
-                >
-                  <div className="w-8 h-8 rounded-full bg-[#E3000F] flex items-center justify-center mr-3 text-white font-bold text-xs">AM</div>
-                  <span className="flex-1 text-left font-medium">Pay with Afrimoney</span>
+                  <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background">
+                    <CreditCard className="h-4 w-4" />
+                  </div>
+                  <span className="flex-1 text-left font-medium">
+                    {busy ? "Opening secure checkout..." : "Pay with Monime"}
+                  </span>
                 </Button>
               </div>
               
               <p className="text-center text-xs text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Secure simulated payment
+                Mobile money, bank transfer, and cards via Monime
               </p>
             </>
           )}
