@@ -71,7 +71,7 @@ const Index = () => {
                 height={1200}
                 className="aspect-[4/5] w-full object-cover opacity-90 md:aspect-[5/6]"
               />
-              <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-hairline bg-background/80 p-4 backdrop-blur-xl">
+              {/* <div className="absolute inset-x-4 bottom-4 rounded-2xl border border-hairline bg-background/80 p-4 backdrop-blur-xl">
                 <div className="flex items-center justify-between text-sm">
                   <div>
                     <p className="text-muted-foreground">Next ride to</p>
@@ -89,7 +89,7 @@ const Index = () => {
                   </span>
                   <span className="text-xs text-muted-foreground">3 students confirmed</span>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
@@ -163,7 +163,7 @@ const Index = () => {
                 <Link to="/request">Request your first ride</Link>
               </Button>
               <Button asChild variant="outline" size="xl">
-                <a href="https://wa.me/23278000000" target="_blank" rel="noreferrer">
+                <a href="https://wa.me/23272804884" target="_blank" rel="noreferrer">
                   <Phone className="h-4 w-4" /> Chat on WhatsApp
                 </a>
               </Button>
@@ -196,9 +196,8 @@ const PriceCard = ({
   featured?: boolean;
 }) => (
   <div
-    className={`group relative overflow-hidden rounded-2xl p-8 transition-all ${
-      featured ? "bg-foreground text-background shadow-elevated" : "glass-card"
-    }`}
+    className={`group relative overflow-hidden rounded-2xl p-8 transition-all ${featured ? "bg-foreground text-background shadow-elevated" : "glass-card"
+      }`}
   >
     <div className="flex items-center justify-between">
       <h3 className="font-display text-2xl font-semibold">{title}</h3>
@@ -217,9 +216,8 @@ const PriceCard = ({
       {perks.map((p) => (
         <li key={p} className="flex items-start gap-2.5">
           <span
-            className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-              featured ? "bg-background" : "bg-foreground"
-            }`}
+            className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${featured ? "bg-background" : "bg-foreground"
+              }`}
           />
           {p}
         </li>
