@@ -148,8 +148,8 @@ export default async function handler(req: any, res: any) {
         name: `Easi Ride ${plan.title}`,
         description: `Weekly ${parsed.data.plan} subscription with 14 rides`,
         reference: orderId,
-        successUrl: `${appUrl}/checkout/complete?orderId=${encodeURIComponent(orderId)}`,
-        cancelUrl: `${appUrl}/checkout/${parsed.data.plan}?payment=cancelled&orderId=${encodeURIComponent(orderId)}`,
+        successUrl: `${appUrl}/api/monime-checkout-success?orderId=${encodeURIComponent(orderId)}`,
+        cancelUrl: `${appUrl}/api/monime-checkout-cancel?plan=${parsed.data.plan}&orderId=${encodeURIComponent(orderId)}`,
         lineItems: [
           {
             type: "custom",
