@@ -191,17 +191,19 @@ const PrivacySecurity = () => {
 
       {/* Documents */}
       <div className="glass-card divide-y divide-hairline/60 rounded-2xl overflow-hidden">
-        <Link to="#" className="flex items-center justify-between p-5 transition hover:bg-secondary/30">
+        <Link to="/terms-of-service" className="flex items-center justify-between p-5 transition hover:bg-secondary/30">
           <div className="flex items-center gap-3">
             <FileText className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Terms of Service</span>
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Link>
-        <Link to="#" className="flex items-center justify-between p-5 transition hover:bg-secondary/30">
+        <Link to="/privacy-policy" className="flex items-center justify-between p-5 transition hover:bg-secondary/30">
           <div className="flex items-center gap-3">
             <FileText className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Privacy Policy</span>
           </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Link>
       </div>
 

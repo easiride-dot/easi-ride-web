@@ -21,12 +21,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
-
+      cleanAuthTokensFromUrl();
     });
 
     supabase.auth.getSession().then(({ data: { session: existing } }) => {
       setSession(existing);
       setUser(existing?.user ?? null);
+      cleanAuthTokensFromUrl();
       setLoading(false);
     });
 
@@ -48,4 +49,17 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+};
+
+const cleanAuthTokensFromUrl = () => {
+  if (typeof window === "undefined") return;
+
+  const hash = window.location.hash;
+  if (!hash.includes("access_token=") && !hash.includes("refresh_token=")) return;
+
+  window.history.replaceState(
+    window.history.state,
+    document.title,
+    `${window.location.pathname}${window.location.search}`
+  );
 };
