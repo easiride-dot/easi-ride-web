@@ -18,6 +18,8 @@ import Checkout from "./pages/Checkout.tsx";
 import Notifications from "./pages/Notifications.tsx";
 import PrivacySecurity from "./pages/PrivacySecurity.tsx";
 import HelpSupport from "./pages/HelpSupport.tsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
+import TermsOfService from "./pages/TermsOfService.tsx";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route
                 element={
                   <ProtectedRoute>

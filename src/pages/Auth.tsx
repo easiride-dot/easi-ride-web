@@ -372,7 +372,15 @@ const Auth = () => {
           </button>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            By continuing you agree to our Terms & Privacy.
+            By continuing you agree to our{" "}
+            <Link to="/terms-of-service" className="text-foreground underline-offset-4 hover:underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy-policy" className="text-foreground underline-offset-4 hover:underline">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </div>
       </main>
