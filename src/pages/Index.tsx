@@ -177,6 +177,14 @@ const Index = () => {
           <Logo />
           <p>© {new Date().getFullYear()} Easi Ride. Built for Sierra Leone students.</p>
         </div>
+        <div className="container mt-4 flex justify-center gap-4 text-sm text-muted-foreground">
+          <Link to="/privacy-policy" className="hover:text-foreground">
+            Privacy Policy
+          </Link>
+          <Link to="/terms-of-service" className="hover:text-foreground">
+            Terms of Service
+          </Link>
+        </div>
       </footer>
     </div>
   );
