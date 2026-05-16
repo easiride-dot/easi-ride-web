@@ -17,7 +17,7 @@ const Checkout = () => {
   const [busy, setBusy] = useState(false);
 
   const isShared = plan === "shared";
-  const price = isShared ? 100 : 150;
+  const price = isShared ? 2 : 150;
   const title = isShared ? "Shared Plan" : "Solo Plan";
   const isVerified = profile?.verification_status === "approved";
 
@@ -97,7 +97,7 @@ const Checkout = () => {
           ) : (
             <>
               <h1 className="font-display text-2xl font-semibold text-center mb-6">Complete your subscription</h1>
-              
+
               <div className="bg-secondary/30 rounded-2xl p-5 mb-8 border border-hairline">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-muted-foreground text-sm">Plan</span>
@@ -116,8 +116,8 @@ const Checkout = () => {
 
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-4">Payment</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full h-14 justify-start px-6"
                   disabled={busy}
                   onClick={handlePay}
@@ -130,7 +130,7 @@ const Checkout = () => {
                   </span>
                 </Button>
               </div>
-              
+
               <p className="text-center text-xs text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Mobile money, bank transfer, and cards via Monime

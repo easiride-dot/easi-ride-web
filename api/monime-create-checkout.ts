@@ -6,7 +6,7 @@ const checkoutSchema = z.object({
 });
 
 const plans = {
-  shared: { title: "Shared Plan", amount: 100 },
+  shared: { title: "Shared Plan", amount: 2 },
   solo: { title: "Solo Plan", amount: 150 },
 } as const;
 
