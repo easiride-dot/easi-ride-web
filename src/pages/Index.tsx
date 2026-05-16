@@ -133,7 +133,7 @@ const Index = () => {
           <div className="grid gap-4 md:grid-cols-2">
             <PriceCard
               title="Shared"
-              price={100}
+              price={2}
               tagline="Roll with classmates."
               perks={["Daily rides to & from campus", "Up to 3 students per keke", "Priority morning slots"]}
             />
