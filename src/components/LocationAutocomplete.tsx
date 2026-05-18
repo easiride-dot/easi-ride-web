@@ -89,8 +89,8 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
       </div>
       
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute z-50 mt-2 w-[calc(100%+2rem)] -left-10 overflow-hidden rounded-xl border border-hairline bg-background/95 backdrop-blur-xl shadow-xl">
-          <ul className="max-h-[300px] overflow-auto py-2">
+        <div className="absolute z-50 mt-2 w-[calc(100%+2rem)] -left-10 rounded-xl border border-hairline bg-background/95 backdrop-blur-xl shadow-xl">
+          <ul className="max-h-[250px] overflow-y-auto overscroll-contain touch-pan-y py-2 rounded-xl">
             {suggestions.map((s, i) => (
               <li key={i}>
                 <button

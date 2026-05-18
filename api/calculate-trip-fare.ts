@@ -68,18 +68,25 @@ const callTomTom = async (origin: string, campus: string, lat?: number, lon?: nu
     originLon = geoData.results[0].position.lon;
   }
 
-  const destQuery = encodeURIComponent(`${campus}, Freetown, Sierra Leone`);
-  const destUrl = `https://api.tomtom.com/search/2/geocode/${destQuery}.json?key=${apiKey}&limit=1`;
-  
-  const destResponse = await fetch(destUrl);
-  const destData = await destResponse.json();
+  const campusCoords: Record<string, { lat: number, lon: number }> = {
+    "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
+    "IPAM Tower Hill": { lat: 8.484611, lon: -13.230917 },
+    "Limkokwing": { lat: 8.451639, lon: -13.238417 },
+  };
 
-  if (!destData.results || destData.results.length === 0) {
-    throw new Error(`Could not find destination: ${campus}`);
+  const dest = campusCoords[campus];
+  if (!dest) {
+    throw new Error(`Unknown campus for routing: ${campus}`);
   }
 
-  const destLat = destData.results[0].position.lat;
-  const destLon = destData.results[0].position.lon;
+  const destLat = dest.lat;
+  const destLon = dest.lon;
+
+  // Print the exact coordinates to the Vercel terminal so you can verify them!
+  console.log(`📍 Using EXACT coordinates for ${campus}: Latitude ${destLat}, Longitude ${destLon}`);
+  if (!lat || !lon) {
+    console.log(`📍 TomTom located Origin (${origin}) at: Latitude ${originLat}, Longitude ${originLon}`);
+  }
 
   const destLatLon = `${destLat},${destLon}`;
   const originLatLon = `${originLat},${originLon}`;

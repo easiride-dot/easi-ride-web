@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 const TIME_SLOTS = ["06:30", "07:00", "07:30", "08:00", "16:00", "17:00"];
-const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Njala University", "Limkokwing"];
+const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
 const Request = () => {
   const navigate = useNavigate();
