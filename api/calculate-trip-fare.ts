@@ -35,15 +35,13 @@ const getMockDistance = (origin: string, campus: string): number => {
   // Try exact match first, then partial match
   const exactMatch = MOCK_DISTANCES[key];
   if (exactMatch && exactMatch[campus] !== undefined) {
-  const mockDistances: Record<string, Record<string, number>> = {
-    "Lumley": { "Fourah Bay College": 12, "IPAM Tower Hill": 8, "Njala University": 10, "Limkokwing": 6 },
-    "Aberdeen": { "Fourah Bay College": 14, "IPAM Tower Hill": 9, "Njala University": 11, "Limkokwing": 7 },
-    "Wilberforce": { "Fourah Bay College": 10, "IPAM Tower Hill": 6, "Njala University": 8, "Limkokwing": 4 },
-  };
-
-  const originMock = Object.keys(mockDistances).find(k => origin.toLowerCase().includes(k.toLowerCase()));
-  if (originMock && mockDistances[originMock][campus]) {
-    return mockDistances[originMock][campus];
+    return exactMatch[campus];
+  }
+  // Try partial match (e.g. "Lumley Junction" → matches "lumley")
+  for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
+    if (key.includes(area) && campuses[campus] !== undefined) {
+      return campuses[campus];
+    }
   }
   return DEFAULT_DISTANCE_KM;
 };
