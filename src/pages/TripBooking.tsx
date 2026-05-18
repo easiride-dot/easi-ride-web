@@ -50,20 +50,20 @@ const TripBooking = () => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
-          const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
           
-          const response = await fetch(url, {
-            headers: { "User-Agent": "EasiRideApp/1.0" }
+          const response = await fetch('/api/reverse-geocode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: latitude, lon: longitude })
           });
+          
           const data = await response.json();
           
-          if (data && data.address) {
-            const a = data.address;
-            const placeName = a.neighbourhood || a.suburb || a.road || a.residential || "Freetown";
-            setPickup(placeName);
+          if (response.ok && data.placeName) {
+            setPickup(data.placeName);
             toast.success("Location detected", { id: toastId });
           } else {
-            toast.error("Could not get street name. Please type it.", { id: toastId });
+            toast.error(data.error || "Could not get street name. Please type it.", { id: toastId });
           }
           setFare(null);
         } catch (error) {

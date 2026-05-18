@@ -46,7 +46,10 @@ const getMockDistance = (origin: string, campus: string): number => {
   return DEFAULT_DISTANCE_KM;
 };
 
-const callOSRM = async (origin: string, campus: string): Promise<number> => {
+const callTomTom = async (origin: string, campus: string): Promise<number> => {
+  const apiKey = process.env.TOMTOM_API_KEY;
+  if (!apiKey) throw new Error("TomTom API key not configured");
+
   // Hardcode campus coordinates (longitude, latitude) to save API calls
   const campusCoords: Record<string, string> = {
     "Fourah Bay College": "-13.2134,8.4844",
@@ -60,32 +63,36 @@ const callOSRM = async (origin: string, campus: string): Promise<number> => {
     throw new Error(`Unknown campus for routing: ${campus}`);
   }
 
-  // 1. Geocode the origin address using OpenStreetMap Nominatim
+  // 1. Geocode the origin address using TomTom
   const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
-  const geoUrl = `https://nominatim.openstreetmap.org/search?q=${originQuery}&format=json&limit=1`;
+  const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
   
-  const geoResponse = await fetch(geoUrl, {
-    headers: { "User-Agent": "EasiRideApp/1.0" } // Nominatim requires a User-Agent
-  });
+  const geoResponse = await fetch(geoUrl);
   const geoData = await geoResponse.json();
 
-  if (!geoData || geoData.length === 0) {
+  if (!geoData.results || geoData.results.length === 0) {
     throw new Error(`Could not find origin: ${origin}`);
   }
 
-  const originCoords = `${geoData[0].lon},${geoData[0].lat}`;
+  const originLat = geoData.results[0].position.lat;
+  const originLon = geoData.results[0].position.lon;
 
-  // 2. Get driving distance using OSRM (Open Source Routing Machine)
-  const dirUrl = `https://router.project-osrm.org/route/v1/driving/${originCoords};${destCoords}?overview=false`;
+  // TomTom routing uses lat,lon:lat,lon format
+  const [destLon, destLat] = destCoords.split(",");
+  const destLatLon = `${destLat},${destLon}`;
+  const originLatLon = `${originLat},${originLon}`;
+
+  // 2. Get driving distance using TomTom Routing API
+  const dirUrl = `https://api.tomtom.com/routing/1/calculateRoute/${originLatLon}:${destLatLon}/json?key=${apiKey}`;
   const dirResponse = await fetch(dirUrl);
   const dirData = await dirResponse.json();
 
-  if (dirData.code !== "Ok" || !dirData.routes || dirData.routes.length === 0) {
-    throw new Error(`Routing failed: ${dirData.code}`);
+  if (!dirData.routes || dirData.routes.length === 0) {
+    throw new Error(`Routing failed`);
   }
 
   // distance is in meters -> convert to km
-  return dirData.routes[0].distance / 1000;
+  return dirData.routes[0].summary.lengthInMeters / 1000;
 };
 
 export default async function handler(req: any, res: any) {
@@ -105,10 +112,10 @@ export default async function handler(req: any, res: any) {
   let isEstimate = false;
 
   try {
-    distanceKm = await callOSRM(originAddress, campus);
+    distanceKm = await callTomTom(originAddress, campus);
   } catch (err) {
     console.error("Distance calculation error:", err);
-    // Fall back to mock if OSRM fails (e.g. rate limit)
+    // Fall back to mock if TomTom fails (e.g. invalid key or bad location)
     distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
   }

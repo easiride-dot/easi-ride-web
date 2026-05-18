@@ -59,8 +59,11 @@ const getMockDistance = (origin: string, campus: string) => {
 
 const getTripFare = async (originAddress: string, campus: string): Promise<number> => {
   let distanceKm: number;
+  const apiKey = process.env.TOMTOM_API_KEY;
 
   try {
+    if (!apiKey) throw new Error("TomTom API key missing");
+
     const campusCoords: Record<string, string> = {
       "Fourah Bay College": "-13.2134,8.4844",
       "IPAM Tower Hill": "-13.2355,8.4811",
@@ -72,25 +75,28 @@ const getTripFare = async (originAddress: string, campus: string): Promise<numbe
     if (!destCoords) throw new Error("Unknown campus");
 
     const originQuery = encodeURIComponent(`${originAddress}, Freetown, Sierra Leone`);
-    const geoUrl = `https://nominatim.openstreetmap.org/search?q=${originQuery}&format=json&limit=1`;
+    const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
     
-    const geoResponse = await fetch(geoUrl, {
-      headers: { "User-Agent": "EasiRideApp/1.0" }
-    });
+    const geoResponse = await fetch(geoUrl);
     const geoData = await geoResponse.json();
 
-    if (!geoData || geoData.length === 0) {
-      throw new Error("Could not find origin via OpenStreetMap");
+    if (!geoData.results || geoData.results.length === 0) {
+      throw new Error("Could not find origin via TomTom");
     }
 
-    const originCoords = `${geoData[0].lon},${geoData[0].lat}`;
+    const originLat = geoData.results[0].position.lat;
+    const originLon = geoData.results[0].position.lon;
 
-    const dirUrl = `https://router.project-osrm.org/route/v1/driving/${originCoords};${destCoords}?overview=false`;
+    const [destLon, destLat] = destCoords.split(",");
+    const destLatLon = `${destLat},${destLon}`;
+    const originLatLon = `${originLat},${originLon}`;
+
+    const dirUrl = `https://api.tomtom.com/routing/1/calculateRoute/${originLatLon}:${destLatLon}/json?key=${apiKey}`;
     const dirResponse = await fetch(dirUrl);
     const dirData = await dirResponse.json();
 
-    if (dirData.code === "Ok" && dirData.routes && dirData.routes.length > 0) {
-      distanceKm = dirData.routes[0].distance / 1000;
+    if (dirData.routes && dirData.routes.length > 0) {
+      distanceKm = dirData.routes[0].summary.lengthInMeters / 1000;
     } else {
       distanceKm = getMockDistance(originAddress, campus);
     }
