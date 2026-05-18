@@ -11,6 +11,8 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
     paymentType: z.literal("trip"),
     originAddress: z.string().min(3),
     campus: z.string().min(1),
+    originLat: z.number().optional(),
+    originLon: z.number().optional(),
   }),
 ]);
 
@@ -57,25 +59,30 @@ const getMockDistance = (origin: string, campus: string) => {
   return DEFAULT_KM;
 };
 
-const getTripFare = async (originAddress: string, campus: string): Promise<number> => {
+const getTripFare = async (originAddress: string, campus: string, lat?: number, lon?: number): Promise<number> => {
   let distanceKm: number;
   const apiKey = process.env.TOMTOM_API_KEY;
 
   try {
     if (!apiKey) throw new Error("TomTom API key missing");
 
-    const originQuery = encodeURIComponent(`${originAddress}, Freetown, Sierra Leone`);
-    const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
-    
-    const geoResponse = await fetch(geoUrl);
-    const geoData = await geoResponse.json();
+    let originLat = lat;
+    let originLon = lon;
 
-    if (!geoData.results || geoData.results.length === 0) {
-      throw new Error("Could not find origin via TomTom");
+    if (!originLat || !originLon) {
+      const originQuery = encodeURIComponent(`${originAddress}, Freetown, Sierra Leone`);
+      const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
+      
+      const geoResponse = await fetch(geoUrl);
+      const geoData = await geoResponse.json();
+
+      if (!geoData.results || geoData.results.length === 0) {
+        throw new Error("Could not find origin via TomTom");
+      }
+
+      originLat = geoData.results[0].position.lat;
+      originLon = geoData.results[0].position.lon;
     }
-
-    const originLat = geoData.results[0].position.lat;
-    const originLon = geoData.results[0].position.lon;
 
     const destQuery = encodeURIComponent(`${campus}, Freetown, Sierra Leone`);
     const destUrl = `https://api.tomtom.com/search/2/geocode/${destQuery}.json?key=${apiKey}&limit=1`;
@@ -205,7 +212,7 @@ export default async function handler(req: any, res: any) {
       planDescription = `Weekly solo subscription — ${payload.pickupArea} → ${payload.campus}`;
     } else {
       // Pay per trip
-      amount = await getTripFare(payload.originAddress, payload.campus);
+      amount = await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
       campus = payload.campus;
       planTitle = "Easi Ride — Pay Per Trip";
       planDescription = `Single trip from ${payload.originAddress} to ${payload.campus}`;

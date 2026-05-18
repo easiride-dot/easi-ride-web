@@ -1,0 +1,111 @@
+import React, { useState, useEffect, useRef } from "react";
+import { MapPin, Loader2, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+export interface LocationSuggestion {
+  address: string;
+  lat: number;
+  lon: number;
+}
+
+interface Props {
+  value: string;
+  onChange: (value: string) => void;
+  onSelect: (location: LocationSuggestion) => void;
+  placeholder?: string;
+  id?: string;
+}
+
+export function LocationAutocomplete({ value, onChange, onSelect, placeholder = "Search location...", id }: Props) {
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!value || value.length < 3) {
+        setSuggestions([]);
+        return;
+      }
+      
+      // If we just selected an item, don't search again immediately
+      if (!showDropdown) return;
+
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        if (data && data.suggestions) {
+          setSuggestions(data.suggestions);
+        }
+      } catch (err) {
+        console.error("Failed to fetch suggestions", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchSuggestions();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [value, showDropdown]);
+
+  const handleSelect = (s: LocationSuggestion) => {
+    onChange(s.address);
+    onSelect(s);
+    setShowDropdown(false);
+  };
+
+  return (
+    <div className="relative flex-1" ref={wrapperRef}>
+      <div className="relative flex items-center">
+        <Input
+          id={id}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setShowDropdown(true);
+          }}
+          placeholder={placeholder}
+          className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0 w-full"
+          autoComplete="off"
+        />
+        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground absolute right-0" />}
+      </div>
+      
+      {showDropdown && suggestions.length > 0 && (
+        <div className="absolute z-50 mt-2 w-[calc(100%+2rem)] -left-10 overflow-hidden rounded-xl border border-hairline bg-background/95 backdrop-blur-xl shadow-xl">
+          <ul className="max-h-[300px] overflow-auto py-2">
+            {suggestions.map((s, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => handleSelect(s)}
+                  className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-secondary/50 transition-colors"
+                >
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm line-clamp-2 leading-snug">{s.address}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/Logo";
+import { LocationAutocomplete, LocationSuggestion } from "@/components/LocationAutocomplete";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,6 +31,9 @@ const TripBooking = () => {
   const { profile, loading: profileLoading } = useProfile();
 
   const [pickup, setPickup] = useState("");
+  const [originLat, setOriginLat] = useState<number | undefined>(undefined);
+  const [originLon, setOriginLon] = useState<number | undefined>(undefined);
+  
   const [campus, setCampus] = useState(CAMPUSES[0]);
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[1]);
   const [fare, setFare] = useState<FareResult | null>(null);
@@ -61,6 +65,8 @@ const TripBooking = () => {
           
           if (response.ok && data.placeName) {
             setPickup(data.placeName);
+            setOriginLat(latitude);
+            setOriginLon(longitude);
             toast.success("Location detected", { id: toastId });
           } else {
             toast.error(data.error || "Could not get street name. Please type it.", { id: toastId });
@@ -87,7 +93,12 @@ const TripBooking = () => {
       const response = await fetch("/api/calculate-trip-fare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ originAddress: pickup.trim(), campus }),
+        body: JSON.stringify({ 
+          originAddress: pickup.trim(), 
+          campus,
+          originLat,
+          originLon
+        }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result) {
@@ -127,6 +138,8 @@ const TripBooking = () => {
           paymentType: "trip",
           originAddress: pickup.trim(),
           campus,
+          originLat,
+          originLon
         }),
       });
 
@@ -186,12 +199,22 @@ const TripBooking = () => {
                 </div>
                 <div className="flex-1">
                   <Label htmlFor="trip-pickup" className="text-xs text-muted-foreground">Pickup location</Label>
-                  <Input
+                  <LocationAutocomplete
                     id="trip-pickup"
                     value={pickup}
-                    onChange={(e) => { setPickup(e.target.value); setFare(null); }}
-                    placeholder="e.g. Lumley roundabout"
-                    className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0"
+                    onChange={(val) => {
+                      setPickup(val);
+                      setFare(null);
+                      setOriginLat(undefined);
+                      setOriginLon(undefined);
+                    }}
+                    onSelect={(loc) => {
+                      setPickup(loc.address);
+                      setOriginLat(loc.lat);
+                      setOriginLon(loc.lon);
+                      setFare(null);
+                    }}
+                    placeholder="Search or type a location..."
                   />
                 </div>
                 <button

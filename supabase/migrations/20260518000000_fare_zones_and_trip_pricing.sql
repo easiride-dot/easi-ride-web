@@ -70,3 +70,9 @@ alter table public.rides
   add column if not exists payment_type text not null default 'subscription',
   add column if not exists distance_km numeric,
   add column if not exists fare_amount numeric;
+
+-- ============================================================
+-- Allow 'trip' as a valid plan_type in payment_attempts
+-- ============================================================
+alter table public.payment_attempts drop constraint if exists payment_attempts_plan_type_check;
+alter table public.payment_attempts add constraint payment_attempts_plan_type_check check (plan_type in ('shared', 'solo', 'trip'));

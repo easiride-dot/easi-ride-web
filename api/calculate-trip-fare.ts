@@ -35,36 +35,41 @@ const getMockDistance = (origin: string, campus: string): number => {
   // Try exact match first, then partial match
   const exactMatch = MOCK_DISTANCES[key];
   if (exactMatch && exactMatch[campus] !== undefined) {
-    return exactMatch[campus];
-  }
-  // Try partial match (e.g. "Lumley Junction" → matches "lumley")
-  for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
-    if (key.includes(area) && campuses[campus] !== undefined) {
-      return campuses[campus];
-    }
+  const mockDistances: Record<string, Record<string, number>> = {
+    "Lumley": { "Fourah Bay College": 12, "IPAM Tower Hill": 8, "Njala University": 10, "Limkokwing": 6 },
+    "Aberdeen": { "Fourah Bay College": 14, "IPAM Tower Hill": 9, "Njala University": 11, "Limkokwing": 7 },
+    "Wilberforce": { "Fourah Bay College": 10, "IPAM Tower Hill": 6, "Njala University": 8, "Limkokwing": 4 },
+  };
+
+  const originMock = Object.keys(mockDistances).find(k => origin.toLowerCase().includes(k.toLowerCase()));
+  if (originMock && mockDistances[originMock][campus]) {
+    return mockDistances[originMock][campus];
   }
   return DEFAULT_DISTANCE_KM;
 };
 
-const callTomTom = async (origin: string, campus: string): Promise<number> => {
+const callTomTom = async (origin: string, campus: string, lat?: number, lon?: number): Promise<number> => {
   const apiKey = process.env.TOMTOM_API_KEY;
   if (!apiKey) throw new Error("TomTom API key not configured");
 
-  // 1. Geocode the origin address using TomTom
-  const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
-  const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
-  
-  const geoResponse = await fetch(geoUrl);
-  const geoData = await geoResponse.json();
+  let originLat = lat;
+  let originLon = lon;
 
-  if (!geoData.results || geoData.results.length === 0) {
-    throw new Error(`Could not find origin: ${origin}`);
+  if (!originLat || !originLon) {
+    const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
+    const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
+    
+    const geoResponse = await fetch(geoUrl);
+    const geoData = await geoResponse.json();
+
+    if (!geoData.results || geoData.results.length === 0) {
+      throw new Error(`Could not find origin: ${origin}`);
+    }
+
+    originLat = geoData.results[0].position.lat;
+    originLon = geoData.results[0].position.lon;
   }
 
-  const originLat = geoData.results[0].position.lat;
-  const originLon = geoData.results[0].position.lon;
-
-  // 2. Geocode the destination campus using TomTom
   const destQuery = encodeURIComponent(`${campus}, Freetown, Sierra Leone`);
   const destUrl = `https://api.tomtom.com/search/2/geocode/${destQuery}.json?key=${apiKey}&limit=1`;
   
@@ -78,11 +83,9 @@ const callTomTom = async (origin: string, campus: string): Promise<number> => {
   const destLat = destData.results[0].position.lat;
   const destLon = destData.results[0].position.lon;
 
-  // TomTom routing uses lat,lon:lat,lon format
   const destLatLon = `${destLat},${destLon}`;
   const originLatLon = `${originLat},${originLon}`;
 
-  // 2. Get driving distance using TomTom Routing API
   const dirUrl = `https://api.tomtom.com/routing/1/calculateRoute/${originLatLon}:${destLatLon}/json?key=${apiKey}`;
   const dirResponse = await fetch(dirUrl);
   const dirData = await dirResponse.json();
@@ -91,7 +94,6 @@ const callTomTom = async (origin: string, campus: string): Promise<number> => {
     throw new Error(`Routing failed`);
   }
 
-  // distance is in meters -> convert to km
   return dirData.routes[0].summary.lengthInMeters / 1000;
 };
 
@@ -106,27 +108,27 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
 
-  const { originAddress, campus } = parsed.data;
-  // We no longer need an API key for OSRM, so we can always try it first
-  let distanceKm: number;
+  const { originAddress, campus, originLat, originLon } = parsed.data;
+
+  let distanceKm = 0;
   let isEstimate = false;
 
   try {
-    distanceKm = await callTomTom(originAddress, campus);
+    distanceKm = await callTomTom(originAddress, campus, originLat, originLon);
   } catch (err) {
     console.error("Distance calculation error:", err);
-    // Fall back to mock if TomTom fails (e.g. invalid key or bad location)
     distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
   }
 
-  const rawFare = BASE_RATE * distanceKm;
-  const fareAmount = distanceKm < MIN_DISTANCE_KM ? MIN_FARE : Math.round(rawFare);
+  const fareAmount = distanceKm < MIN_DISTANCE_KM
+    ? MIN_FARE
+    : Math.round(BASE_RATE * distanceKm);
 
   return res.status(200).json({
-    distanceKm: Math.round(distanceKm * 10) / 10,  // 1 decimal place
+    distanceKm: Number(distanceKm.toFixed(1)),
     fareAmount,
-    isEstimate,        // true when using placeholder distances
-    minimumApplied: distanceKm < MIN_DISTANCE_KM,
+    isEstimate,
+    minimumApplied: distanceKm < MIN_DISTANCE_KM
   });
 }
