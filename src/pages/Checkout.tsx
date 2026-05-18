@@ -196,7 +196,7 @@ const Checkout = () => {
               <h1 className="font-display text-2xl font-semibold text-center mb-6">Weekly Plan</h1>
 
               {/* Route selector */}
-              <div className="bg-secondary/30 rounded-2xl overflow-hidden border border-hairline mb-6">
+              <div className="bg-secondary/30 rounded-2xl border border-hairline mb-6">
                 <div className="relative flex items-center gap-3 p-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
                     <MapPin className="h-4 w-4" />

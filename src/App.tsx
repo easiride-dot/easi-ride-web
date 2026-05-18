@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -46,9 +46,7 @@ const App = () => (
                 }
               >
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/checkout/weekly" element={<Checkout />} />
                 <Route path="/checkout/complete" element={<CheckoutComplete />} />
-                <Route path="/trip/book" element={<TripBooking />} />
                 <Route path="/trip/complete" element={<CheckoutComplete />} />
                 <Route path="/request" element={<Request />} />
                 <Route path="/matching/:id" element={<Matching />} />
@@ -56,8 +54,20 @@ const App = () => (
                 <Route path="/account/notifications" element={<Notifications />} />
                 <Route path="/account/privacy" element={<PrivacySecurity />} />
                 <Route path="/account/help" element={<HelpSupport />} />
-                {/* Admin panel has been moved to a separate project */}
               </Route>
+
+              {/* Subpages that should not have the main persistent headers or bottom tabs */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Outlet />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/checkout/weekly" element={<Checkout />} />
+                <Route path="/trip/book" element={<TripBooking />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </RideProvider>
