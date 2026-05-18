@@ -50,19 +50,6 @@ const callTomTom = async (origin: string, campus: string): Promise<number> => {
   const apiKey = process.env.TOMTOM_API_KEY;
   if (!apiKey) throw new Error("TomTom API key not configured");
 
-  // Hardcode campus coordinates (longitude, latitude) to save API calls
-  const campusCoords: Record<string, string> = {
-    "Fourah Bay College": "-13.2134,8.4844",
-    "IPAM Tower Hill": "-13.2355,8.4811",
-    "Njala University": "-13.2389,8.4833", // Freetown branch approx
-    "Limkokwing": "-13.2678,8.4689",
-  };
-
-  const destCoords = campusCoords[campus];
-  if (!destCoords) {
-    throw new Error(`Unknown campus for routing: ${campus}`);
-  }
-
   // 1. Geocode the origin address using TomTom
   const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
   const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
@@ -77,8 +64,21 @@ const callTomTom = async (origin: string, campus: string): Promise<number> => {
   const originLat = geoData.results[0].position.lat;
   const originLon = geoData.results[0].position.lon;
 
+  // 2. Geocode the destination campus using TomTom
+  const destQuery = encodeURIComponent(`${campus}, Freetown, Sierra Leone`);
+  const destUrl = `https://api.tomtom.com/search/2/geocode/${destQuery}.json?key=${apiKey}&limit=1`;
+  
+  const destResponse = await fetch(destUrl);
+  const destData = await destResponse.json();
+
+  if (!destData.results || destData.results.length === 0) {
+    throw new Error(`Could not find destination: ${campus}`);
+  }
+
+  const destLat = destData.results[0].position.lat;
+  const destLon = destData.results[0].position.lon;
+
   // TomTom routing uses lat,lon:lat,lon format
-  const [destLon, destLat] = destCoords.split(",");
   const destLatLon = `${destLat},${destLon}`;
   const originLatLon = `${originLat},${originLon}`;
 
