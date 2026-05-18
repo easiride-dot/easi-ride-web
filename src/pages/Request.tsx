@@ -22,7 +22,7 @@ const Request = () => {
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState(CAMPUSES[0]);
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[1]);
-  const rideType = (subscription?.plan_type as RideType) || "shared";
+  const rideType = "solo";
 
   const detect = () => {
     setPickup("Wilkinson Road, near junction");
@@ -72,12 +72,17 @@ const Request = () => {
       </div>
 
       {!subLoading && !subscription ? (
-        <div className="glass-card flex flex-col items-center justify-center p-8 text-center rounded-2xl">
+      <div className="glass-card flex flex-col items-center justify-center p-8 text-center rounded-2xl">
           <h2 className="font-display text-xl font-semibold mb-2">No active subscription</h2>
-          <p className="text-sm text-muted-foreground mb-6">You need an active plan to request a ride.</p>
-          <Button asChild variant="hero">
-            <Link to="/">View plans</Link>
-          </Button>
+          <p className="text-sm text-muted-foreground mb-6">You need a weekly plan to book scheduled rides.</p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <Button asChild variant="hero">
+              <Link to="/checkout/weekly">Get weekly plan</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/trip/book">Pay per trip instead</Link>
+            </Button>
+          </div>
         </div>
       ) : !profileLoading && !isVerified ? (
         <div className="glass-card flex flex-col items-center justify-center p-12 text-center rounded-3xl border-amber-500/20 bg-amber-500/5">
@@ -171,7 +176,7 @@ const Request = () => {
           <div>
             <p className="text-xs text-muted-foreground">Payment</p>
             <p className="font-display text-lg font-medium capitalize text-foreground/90">
-              Covered by {rideType} plan
+              Covered by your weekly plan
             </p>
           </div>
           <Button type="submit" variant="hero" size="lg" disabled={submitting}>

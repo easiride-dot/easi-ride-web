@@ -125,28 +125,67 @@ const Index = () => {
       <section className="border-t border-hairline/50 py-20">
         <div className="container">
           <div className="mb-12 max-w-2xl">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Weekly plans</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">How to ride</p>
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-4xl">
-              Pay once a week. Ride every day.
+              Two ways to ride with Easi Ride.
             </h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <PriceCard
-              title="Shared"
-              price={2}
-              tagline="Roll with classmates."
-              perks={["Daily rides to & from campus", "Up to 3 students per keke", "Priority morning slots"]}
-            />
-            <PriceCard
-              title="Solo"
-              price={150}
-              featured
-              tagline="The whole keke. All you."
-              perks={["Daily rides to & from campus", "Private trips, no detours", "Pick your favourite driver"]}
-            />
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Weekly Plan */}
+            <div className="glass-card rounded-2xl p-8 flex flex-col">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-display text-2xl font-semibold">Weekly Plan</h3>
+                <span className="rounded-full bg-foreground/10 border border-hairline px-2.5 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  7 days
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">Priced to your route. Pay once, ride all week.</p>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="font-display text-4xl font-semibold tracking-tight">Route-based</span>
+              </div>
+              <ul className="space-y-3 text-sm mb-8 flex-1">
+                {["14 rides included (2 per day)", "Price calculated from your route", "Verified driver for every trip", "Fixed weekly rate — no surprises"].map((p) => (
+                  <li key={p} className="flex items-start gap-2.5">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-foreground" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+              <Button asChild className="w-full" size="lg">
+                <Link to="/checkout/weekly">See my weekly price</Link>
+              </Button>
+            </div>
+
+            {/* Pay Per Trip */}
+            <div className="relative overflow-hidden rounded-2xl p-8 bg-foreground text-background flex flex-col shadow-elevated">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-display text-2xl font-semibold">Pay Per Trip</h3>
+                <span className="rounded-full bg-background/10 px-2.5 py-1 text-[10px] uppercase tracking-wider">
+                  No subscription
+                </span>
+              </div>
+              <p className="text-sm text-background/70 mb-6">One trip, one payment. Perfect for occasional rides.</p>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="font-display text-5xl font-semibold tracking-tight">6 NLe</span>
+                <span className="text-sm text-background/70">/ km</span>
+              </div>
+              <p className="text-xs text-background/50 mb-6">Minimum 20 NLe · Calculated by distance</p>
+              <ul className="space-y-3 text-sm mb-8 flex-1">
+                {["Book any single trip", "Price shown before you pay", "No commitment, no recurring fee", "Same verified drivers"].map((p) => (
+                  <li key={p} className="flex items-start gap-2.5">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-background" />
+                    {p}
+                  </li>
+                ))}
+              </ul>
+              <Button asChild className="w-full" variant="secondary" size="lg">
+                <Link to="/trip/book">Book a trip</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
+
 
       {/* CTA */}
       <section className="border-t border-hairline/50 py-20">
@@ -189,57 +228,5 @@ const Index = () => {
     </div>
   );
 };
-
-const PriceCard = ({
-  title,
-  price,
-  perks,
-  tagline,
-  featured,
-}: {
-  title: string;
-  price: number;
-  perks: string[];
-  tagline: string;
-  featured?: boolean;
-}) => (
-  <div
-    className={`group relative overflow-hidden rounded-2xl p-8 transition-all ${featured ? "bg-foreground text-background shadow-elevated" : "glass-card"
-      }`}
-  >
-    <div className="flex items-center justify-between">
-      <h3 className="font-display text-2xl font-semibold">{title}</h3>
-      {featured && (
-        <span className="rounded-full bg-background/10 px-2.5 py-1 text-[10px] uppercase tracking-wider">
-          Most picked
-        </span>
-      )}
-    </div>
-    <p className={`mt-1 text-sm ${featured ? "text-background/70" : "text-muted-foreground"}`}>{tagline}</p>
-    <div className="mt-6 flex items-baseline gap-1">
-      <span className="font-display text-5xl font-semibold tracking-tight">{price}</span>
-      <span className={`text-sm ${featured ? "text-background/70" : "text-muted-foreground"}`}>NLe / week</span>
-    </div>
-    <ul className="mt-6 space-y-3 text-sm">
-      {perks.map((p) => (
-        <li key={p} className="flex items-start gap-2.5">
-          <span
-            className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${featured ? "bg-background" : "bg-foreground"
-              }`}
-          />
-          {p}
-        </li>
-      ))}
-    </ul>
-    <Button
-      asChild
-      className="mt-8 w-full"
-      variant={featured ? "secondary" : "default"}
-      size="lg"
-    >
-      <Link to={`/checkout/${title.toLowerCase()}`}>Choose {title.toLowerCase()}</Link>
-    </Button>
-  </div>
-);
 
 export default Index;

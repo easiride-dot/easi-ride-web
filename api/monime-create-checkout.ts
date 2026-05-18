@@ -1,16 +1,107 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-const checkoutSchema = z.object({
-  plan: z.enum(["shared", "solo"]),
-});
+const checkoutSchema = z.discriminatedUnion("paymentType", [
+  z.object({
+    paymentType: z.literal("weekly"),
+    pickupArea: z.string().min(1),
+    campus: z.string().min(1),
+  }),
+  z.object({
+    paymentType: z.literal("trip"),
+    originAddress: z.string().min(3),
+    campus: z.string().min(1),
+  }),
+]);
 
-const plans = {
-  shared: { title: "Shared Plan", amount: 2 },
-  solo: { title: "Solo Plan", amount: 150 },
-} as const;
+const WEEKLY_MULTIPLIER = 2 * 6;
+const TRIP_BASE_RATE = 6;
+const TRIP_MIN_FARE = 20;
+const TRIP_MIN_DISTANCE_KM = 5;
 
-const toMinorUnits = (amount: number) => Math.round(amount * 100);
+// Internal fare lookup — server-side validation so client can't fake a price
+const getWeeklyPrice = async (
+  supabase: ReturnType<typeof createClient>,
+  pickupArea: string,
+  campus: string
+): Promise<number> => {
+  const { data: zone, error } = await supabase
+    .from("fare_zones")
+    .select("transport_fare")
+    .eq("pickup_area", pickupArea)
+    .eq("campus", campus)
+    .maybeSingle();
+
+  if (error || !zone) {
+    throw new Error("Route not found in fare zones");
+  }
+  return Number(zone.transport_fare) * WEEKLY_MULTIPLIER;
+};
+
+// Mock distances for placeholder mode (mirrors calculate-trip-fare.ts)
+const MOCK_DISTANCES: Record<string, Record<string, number>> = {
+  lumley:       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
+  aberdeen:     { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8  },
+  model:        { "Fourah Bay College": 11.0, "IPAM Tower Hill": 9.2,  "Njala University": 178, "Limkokwing": 8.5  },
+  wilberforce:  { "Fourah Bay College": 10.0, "IPAM Tower Hill": 5.0,  "Njala University": 176, "Limkokwing": 7.0  },
+  "congo cross":{ "Fourah Bay College": 8.5,  "IPAM Tower Hill": 6.2,  "Njala University": 174, "Limkokwing": 6.0  },
+  "murray town":{ "Fourah Bay College": 9.0,  "IPAM Tower Hill": 7.0,  "Njala University": 175, "Limkokwing": 7.5  },
+};
+const DEFAULT_KM = 9;
+
+const getMockDistance = (origin: string, campus: string) => {
+  const key = origin.toLowerCase().trim();
+  for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
+    if (key.includes(area) && campuses[campus] !== undefined) return campuses[campus];
+  }
+  return DEFAULT_KM;
+};
+
+const getTripFare = async (originAddress: string, campus: string): Promise<number> => {
+  let distanceKm: number;
+
+  try {
+    const campusCoords: Record<string, string> = {
+      "Fourah Bay College": "-13.2134,8.4844",
+      "IPAM Tower Hill": "-13.2355,8.4811",
+      "Njala University": "-13.2389,8.4833",
+      "Limkokwing": "-13.2678,8.4689",
+    };
+    
+    const destCoords = campusCoords[campus];
+    if (!destCoords) throw new Error("Unknown campus");
+
+    const originQuery = encodeURIComponent(`${originAddress}, Freetown, Sierra Leone`);
+    const geoUrl = `https://nominatim.openstreetmap.org/search?q=${originQuery}&format=json&limit=1`;
+    
+    const geoResponse = await fetch(geoUrl, {
+      headers: { "User-Agent": "EasiRideApp/1.0" }
+    });
+    const geoData = await geoResponse.json();
+
+    if (!geoData || geoData.length === 0) {
+      throw new Error("Could not find origin via OpenStreetMap");
+    }
+
+    const originCoords = `${geoData[0].lon},${geoData[0].lat}`;
+
+    const dirUrl = `https://router.project-osrm.org/route/v1/driving/${originCoords};${destCoords}?overview=false`;
+    const dirResponse = await fetch(dirUrl);
+    const dirData = await dirResponse.json();
+
+    if (dirData.code === "Ok" && dirData.routes && dirData.routes.length > 0) {
+      distanceKm = dirData.routes[0].distance / 1000;
+    } else {
+      distanceKm = getMockDistance(originAddress, campus);
+    }
+  } catch (err) {
+    distanceKm = getMockDistance(originAddress, campus);
+  }
+
+  return distanceKm < TRIP_MIN_DISTANCE_KM
+    ? TRIP_MIN_FARE
+    : Math.round(TRIP_BASE_RATE * distanceKm);
+};
 
 const getEnv = (name: string) => {
   const value = process.env[name];
@@ -18,51 +109,33 @@ const getEnv = (name: string) => {
   return value;
 };
 
-class SetupError extends Error {
-  status = 500;
-}
-
+class SetupError extends Error { status = 500; }
 class AppError extends Error {
-  constructor(
-    message: string,
-    public status = 500,
-    public code?: string
-  ) {
-    super(message);
-  }
+  constructor(message: string, public status = 500, public code?: string) { super(message); }
 }
 
-const isMissingPaymentAttemptsTable = (error: unknown) =>
-  typeof error === "object" &&
-  error !== null &&
-  "code" in error &&
-  (error as { code?: string }).code === "42P01";
+const getAuthToken = (authorization?: string | string[]) => {
+  const value = Array.isArray(authorization) ? authorization[0] : authorization;
+  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
+};
 
 const getAppUrl = (req: { headers: Record<string, string | string[] | undefined> }) => {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-
   const host = req.headers["x-forwarded-host"] || req.headers.host;
   const protocol = req.headers["x-forwarded-proto"] || "https";
   return `${protocol}://${Array.isArray(host) ? host[0] : host}`;
 };
 
-const getAuthToken = (authorization?: string | string[]) => {
-  const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
-};
+const getErrorMessage = (e: unknown) =>
+  e instanceof Error ? e.message : typeof e === "object" && e !== null && "message" in e
+    ? String((e as any).message) : "Unknown error";
 
-const getErrorCode = (error: unknown) =>
-  typeof error === "object" && error !== null && "code" in error
-    ? String((error as { code?: string }).code)
-    : undefined;
+const getErrorCode = (e: unknown) =>
+  typeof e === "object" && e !== null && "code" in e ? String((e as any).code) : undefined;
 
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error
-    ? error.message
-    : typeof error === "object" && error !== null && "message" in error
-      ? String((error as { message?: string }).message)
-      : "Unknown error";
+const isMissingPaymentAttemptsTable = (error: unknown) =>
+  typeof error === "object" && error !== null && "code" in error &&
+  (error as any).code === "42P01";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -83,11 +156,7 @@ export default async function handler(req: any, res: any) {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
-
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
 
     const { data: profile, error: profileError } = await supabase
@@ -101,39 +170,66 @@ export default async function handler(req: any, res: any) {
       return res.status(403).json({ error: "Student ID must be approved before payment" });
     }
 
-    const { data: existingSubscription } = await supabase
-      .from("subscriptions")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .gt("end_date", new Date().toISOString())
-      .maybeSingle();
+    const payload = parsed.data;
+    let amount: number;
+    let planTitle: string;
+    let planDescription: string;
+    let pickupArea: string | null = null;
+    let campus: string;
 
-    if (existingSubscription) {
-      return res.status(409).json({ error: "You already have an active subscription" });
+    if (payload.paymentType === "weekly") {
+      // Check no active subscription exists
+      const { data: existing } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .gt("end_date", new Date().toISOString())
+        .maybeSingle();
+      if (existing) {
+        return res.status(409).json({ error: "You already have an active subscription" });
+      }
+      // Server-side price calculation — client cannot manipulate this
+      amount = await getWeeklyPrice(supabase, payload.pickupArea, payload.campus);
+      pickupArea = payload.pickupArea;
+      campus = payload.campus;
+      planTitle = "Easi Ride Weekly Plan";
+      planDescription = `Weekly solo subscription — ${payload.pickupArea} → ${payload.campus}`;
+    } else {
+      // Pay per trip
+      amount = await getTripFare(payload.originAddress, payload.campus);
+      campus = payload.campus;
+      planTitle = "Easi Ride — Pay Per Trip";
+      planDescription = `Single trip from ${payload.originAddress} to ${payload.campus}`;
     }
 
-    const plan = plans[parsed.data.plan];
     const orderId = `er_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const appUrl = getAppUrl(req);
 
     const { error: attemptError } = await supabase.from("payment_attempts").insert({
       user_id: user.id,
-      plan_type: parsed.data.plan,
-      amount: plan.amount,
+      plan_type: payload.paymentType === "weekly" ? "solo" : "trip",
+      amount,
       currency: "SLE",
       order_id: orderId,
       status: "pending",
-      metadata: { source: "student_checkout" },
+      metadata: {
+        source: "student_checkout",
+        paymentType: payload.paymentType,
+        pickupArea: pickupArea ?? undefined,
+        campus,
+        ...(payload.paymentType === "trip" ? { originAddress: payload.originAddress } : {}),
+      },
     });
 
     if (attemptError) {
       if (isMissingPaymentAttemptsTable(attemptError)) {
         return res.status(500).json({ error: "Payment setup is incomplete. Apply the payment_attempts Supabase migration." });
       }
-
       throw new AppError(`Could not create payment attempt: ${getErrorMessage(attemptError)}`, 500, getErrorCode(attemptError));
     }
+
+    const completePath = payload.paymentType === "weekly" ? "/checkout/complete" : "/trip/complete";
 
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",
@@ -145,27 +241,20 @@ export default async function handler(req: any, res: any) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: `Easi Ride ${plan.title}`,
-        description: `Weekly ${parsed.data.plan} subscription with 14 rides`,
+        name: planTitle,
+        description: planDescription,
         reference: orderId,
         successUrl: `${appUrl}/api/monime-checkout-success?orderId=${encodeURIComponent(orderId)}`,
-        cancelUrl: `${appUrl}/api/monime-checkout-cancel?plan=${parsed.data.plan}&orderId=${encodeURIComponent(orderId)}`,
-        lineItems: [
-          {
-            type: "custom",
-            name: `Easi Ride ${plan.title}`,
-            quantity: 1,
-            reference: orderId,
-            description: "Weekly student ride subscription",
-            price: { currency: "SLE", value: toMinorUnits(plan.amount) },
-          },
-        ],
-        metadata: {
-          app: "easi-ride",
-          userId: user.id,
-          plan: parsed.data.plan,
-          orderId,
-        },
+        cancelUrl: `${appUrl}/api/monime-checkout-cancel?paymentType=${payload.paymentType}&orderId=${encodeURIComponent(orderId)}`,
+        lineItems: [{
+          type: "custom",
+          name: planTitle,
+          quantity: 1,
+          reference: orderId,
+          description: planDescription,
+          price: { currency: "SLE", value: Math.round(amount * 100) },
+        }],
+        metadata: { app: "easi-ride", userId: user.id, paymentType: payload.paymentType, orderId, campus },
         callbackState: orderId,
       }),
     });
@@ -173,8 +262,7 @@ export default async function handler(req: any, res: any) {
     const monimeData = await monimeResponse.json().catch(() => null);
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
-      await supabase
-        .from("payment_attempts")
+      await supabase.from("payment_attempts")
         .update({ status: "failed", monime_status: monimeData?.result?.status ?? null })
         .eq("order_id", orderId);
 
@@ -185,8 +273,7 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    await supabase
-      .from("payment_attempts")
+    await supabase.from("payment_attempts")
       .update({
         monime_session_id: monimeData.result.id,
         monime_order_number: monimeData.result.orderNumber ?? null,
@@ -199,21 +286,12 @@ export default async function handler(req: any, res: any) {
       orderId,
       sessionId: monimeData.result.id,
       redirectUrl: monimeData.result.redirectUrl,
+      amount,
     });
   } catch (error) {
     console.error("Monime checkout error:", error);
-    if (error instanceof SetupError) {
-      return res.status(error.status).json({ error: error.message, code: "SETUP_ERROR" });
-    }
-
-    if (error instanceof AppError) {
-      return res.status(error.status).json({ error: error.message, code: error.code });
-    }
-
-    return res.status(500).json({
-      error: "Unable to start payment",
-      code: getErrorCode(error),
-      detail: getErrorMessage(error),
-    });
+    if (error instanceof SetupError) return res.status(error.status).json({ error: error.message, code: "SETUP_ERROR" });
+    if (error instanceof AppError) return res.status(error.status).json({ error: error.message, code: error.code });
+    return res.status(500).json({ error: "Unable to start payment", code: getErrorCode(error), detail: getErrorMessage(error) });
   }
 }

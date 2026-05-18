@@ -23,7 +23,8 @@ const Dashboard = () => {
   const { rides } = useRides();
   const { subscription } = useSubscription();
   const { profile } = useProfile();
-  const upcoming = rides.filter((r) => r.status !== "completed");
+  const upcomingSub = rides.filter((r) => r.status !== "completed" && r.paymentType === "subscription");
+  const upcomingTrip = rides.filter((r) => r.status !== "completed" && r.paymentType === "trip");
   const past = rides.filter((r) => r.status === "completed");
 
   const daysLeft = subscription
@@ -38,11 +39,21 @@ const Dashboard = () => {
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Welcome back</p>
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Your rides</h1>
         </div>
-        <Button asChild size="sm" variant="hero">
-          <Link to="/request">
-            <Plus className="h-4 w-4" /> New
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {subscription ? (
+            <Button asChild size="sm" variant="hero">
+              <Link to="/request">
+                <Plus className="h-4 w-4 mr-1" /> Request
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm" variant="hero">
+              <Link to="/trip/book">
+                <Plus className="h-4 w-4 mr-1" /> Book Trip
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Verification status banner */}
@@ -99,20 +110,35 @@ const Dashboard = () => {
             <div className="flex flex-col items-center justify-center py-4 text-center">
               <p className="mb-2 text-sm text-muted-foreground">No active subscription</p>
               <Button asChild size="sm" variant="outline">
-                <Link to="/">Subscribe now</Link>
+                <Link to="/checkout/weekly">Get a weekly plan</Link>
               </Button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Upcoming */}
-      <Section title="Upcoming">
-        {upcoming.length === 0 ? (
-          <Empty />
+      {/* Subscription Rides */}
+      {subscription && (
+        <Section title="Subscription Rides">
+          {upcomingSub.length === 0 ? (
+            <Empty link="/request" text="Book a scheduled ride" />
+          ) : (
+            <div className="space-y-3">
+              {upcomingSub.map((r) => (
+                <RideCard key={r.id} ride={r} />
+              ))}
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* Pay-Per-Trip Rides */}
+      <Section title="Pay-Per-Trip Rides">
+        {upcomingTrip.length === 0 ? (
+          <Empty link="/trip/book" text="Book a single trip" />
         ) : (
           <div className="space-y-3">
-            {upcoming.map((r) => (
+            {upcomingTrip.map((r) => (
               <RideCard key={r.id} ride={r} />
             ))}
           </div>
@@ -140,11 +166,11 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </section>
 );
 
-const Empty = () => (
+const Empty = ({ link, text }: { link: string; text: string }) => (
   <div className="glass-card rounded-2xl p-8 text-center">
     <p className="text-sm text-muted-foreground">No upcoming rides yet.</p>
     <Button asChild className="mt-4" variant="hero">
-      <Link to="/request">Book your first ride</Link>
+      <Link to={link}>{text}</Link>
     </Button>
   </div>
 );

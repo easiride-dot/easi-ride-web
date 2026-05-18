@@ -4,12 +4,15 @@ import { useAuth } from "./useAuth";
 
 export interface Subscription {
   id: string;
-  plan_type: "shared" | "solo";
+  plan_type: "solo";
   status: "active" | "expired" | "cancelled";
   start_date: string;
   end_date: string;
   rides_used: number;
   rides_limit: number;
+  pickup_area?: string;
+  campus?: string;
+  amount_paid?: number;
 }
 
 export const useSubscription = () => {

@@ -2,7 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useState 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export type RideType = "shared" | "solo";
+export type RideType = "solo" | "trip";
 export type RideStatus = "pending" | "assigned" | "completed";
 
 export interface Ride {
@@ -19,6 +19,9 @@ export interface Ride {
   etaMinutes?: number;
   createdAt: string;
   userId: string;
+  paymentType: "subscription" | "trip";
+  distanceKm?: number;
+  fareAmount?: number;
 }
 
 interface RideContextValue {
@@ -47,6 +50,9 @@ type RideRow = {
   eta_minutes: number | null;
   created_at: string;
   updated_at: string;
+  payment_type: "subscription" | "trip";
+  distance_km: number | null;
+  fare_amount: number | null;
 };
 
 const mapRow = (r: RideRow): Ride => ({
@@ -63,6 +69,9 @@ const mapRow = (r: RideRow): Ride => ({
   etaMinutes: r.eta_minutes ?? undefined,
   createdAt: r.created_at,
   userId: r.user_id,
+  paymentType: (r.payment_type ?? "subscription") as "subscription" | "trip",
+  distanceKm: r.distance_km ?? undefined,
+  fareAmount: r.fare_amount ?? undefined,
 });
 
 export const RideProvider = ({ children }: { children: ReactNode }) => {
