@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Navigation } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, Loader2, MapPin, Navigation, Locate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { toast } from "sonner";
@@ -9,12 +9,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { ShieldAlert } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 
-const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Njala University", "Limkokwing"];
-
-interface FareZoneEntry {
-  pickup_area: string;
-}
+const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -22,34 +19,61 @@ const Checkout = () => {
   const { profile, loading: profileLoading } = useProfile();
   const [busy, setBusy] = useState(false);
 
-  // Pickup area selection
-  const [availableAreas, setAvailableAreas] = useState<string[]>([]);
-  const [pickupArea, setPickupArea] = useState("");
+  const [pickup, setPickup] = useState("");
+  const [originLat, setOriginLat] = useState<number | undefined>(undefined);
+  const [originLon, setOriginLon] = useState<number | undefined>(undefined);
   const [campus, setCampus] = useState(CAMPUSES[0]);
   const [weeklyPrice, setWeeklyPrice] = useState<number | null>(null);
   const [loadingFare, setLoadingFare] = useState(false);
 
   const isVerified = profile?.verification_status === "approved";
 
-  // Load available pickup areas from fare_zones
-  useEffect(() => {
-    const loadAreas = async () => {
-      const { data } = await supabase
-        .from("fare_zones")
-        .select("pickup_area")
-        .order("pickup_area");
-      if (data) {
-        const unique = [...new Set((data as FareZoneEntry[]).map((d) => d.pickup_area))];
-        setAvailableAreas(unique);
-        if (unique.length > 0) setPickupArea(unique[0]);
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    
+    const toastId = toast.loading("Detecting your location...");
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          
+          const response = await fetch('/api/reverse-geocode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: latitude, lon: longitude })
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok && data.placeName) {
+            setPickup(data.placeName);
+            setOriginLat(latitude);
+            setOriginLon(longitude);
+            toast.success("Location detected", { id: toastId });
+          } else {
+            toast.error(data.error || "Could not get street name. Please type it.", { id: toastId });
+          }
+          setWeeklyPrice(null);
+        } catch (error) {
+          toast.error("Could not detect street name. Please type it.", { id: toastId });
+        }
+      },
+      () => {
+        toast.error("Could not access GPS. Please type your location.", { id: toastId });
       }
-    };
-    loadAreas();
-  }, []);
+    );
+  };
 
   // Fetch weekly price whenever pickup area or campus changes
   useEffect(() => {
-    if (!pickupArea || !campus || !user) return;
+    if (!pickup.trim() || pickup.trim().length < 3 || !campus || !user) {
+      setWeeklyPrice(null);
+      return;
+    }
 
     const fetchFare = async () => {
       setLoadingFare(true);
@@ -62,13 +86,18 @@ const Checkout = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session?.access_token}`,
           },
-          body: JSON.stringify({ pickupArea, campus }),
+          body: JSON.stringify({ 
+            originAddress: pickup.trim(), 
+            campus,
+            originLat,
+            originLon 
+          }),
         });
         const result = await response.json().catch(() => null);
         if (response.ok && result?.weeklyPrice) {
           setWeeklyPrice(result.weeklyPrice);
         } else {
-          setWeeklyPrice(null); // Route not supported yet
+          setWeeklyPrice(null);
         }
       } catch {
         setWeeklyPrice(null);
@@ -77,8 +106,11 @@ const Checkout = () => {
       }
     };
 
-    fetchFare();
-  }, [pickupArea, campus, user]);
+    // Debounce the call if no lat/lon exists (typing mode) to prevent spamming TomTom
+    const delay = !originLat || !originLon ? 600 : 0;
+    const timer = setTimeout(fetchFare, delay);
+    return () => clearTimeout(timer);
+  }, [pickup, campus, originLat, originLon, user]);
 
   const handlePay = async () => {
     if (!user) {
@@ -92,7 +124,7 @@ const Checkout = () => {
       return;
     }
     if (!weeklyPrice) {
-      toast.error("Please select a valid pickup area and campus.");
+      toast.error("Please enter a valid pickup location.");
       return;
     }
 
@@ -108,8 +140,10 @@ const Checkout = () => {
         },
         body: JSON.stringify({
           paymentType: "weekly",
-          pickupArea,
+          originAddress: pickup.trim(),
           campus,
+          originLat,
+          originLon
         }),
       });
 
@@ -163,26 +197,38 @@ const Checkout = () => {
 
               {/* Route selector */}
               <div className="bg-secondary/30 rounded-2xl overflow-hidden border border-hairline mb-6">
-                <div className="flex items-center gap-3 p-4">
+                <div className="relative flex items-center gap-3 p-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
                     <MapPin className="h-4 w-4" />
                   </div>
                   <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">Your pickup area</Label>
-                    {availableAreas.length > 0 ? (
-                      <select
-                        value={pickupArea}
-                        onChange={(e) => setPickupArea(e.target.value)}
-                        className="mt-0.5 h-8 w-full bg-transparent text-sm font-medium outline-none"
-                      >
-                        {availableAreas.map((area) => (
-                          <option key={area} value={area} className="bg-background">{area}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Loading areas...</p>
-                    )}
+                    <Label htmlFor="trip-pickup" className="text-xs text-muted-foreground">Your pickup location</Label>
+                    <LocationAutocomplete
+                      id="trip-pickup"
+                      value={pickup}
+                      onChange={(val) => {
+                        setPickup(val);
+                        setWeeklyPrice(null);
+                        setOriginLat(undefined);
+                        setOriginLon(undefined);
+                      }}
+                      onSelect={(loc) => {
+                        setPickup(loc.address);
+                        setOriginLat(loc.lat);
+                        setOriginLon(loc.lon);
+                        setWeeklyPrice(null);
+                      }}
+                      placeholder="Search or type a location..."
+                    />
                   </div>
+                  <button
+                    type="button"
+                    onClick={detectLocation}
+                    className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
+                    aria-label="Detect my location"
+                  >
+                    <Locate className="h-4 w-4" />
+                  </button>
                 </div>
                 <div className="border-t border-hairline/60" />
                 <div className="flex items-center gap-3 p-4">
@@ -193,7 +239,7 @@ const Checkout = () => {
                     <Label className="text-xs text-muted-foreground">Destination campus</Label>
                     <select
                       value={campus}
-                      onChange={(e) => setCampus(e.target.value)}
+                      onChange={(e) => { setCampus(e.target.value); setWeeklyPrice(null); }}
                       className="mt-0.5 h-8 w-full bg-transparent text-sm font-medium outline-none"
                     >
                       {CAMPUSES.map((c) => (
@@ -221,7 +267,7 @@ const Checkout = () => {
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   ) : weeklyPrice ? (
                     <span className="font-display text-2xl font-semibold">{weeklyPrice} NLe</span>
-                  ) : pickupArea ? (
+                  ) : pickup ? (
                     <span className="text-sm text-muted-foreground">Route not available</span>
                   ) : (
                     <span className="text-sm text-muted-foreground">Select a route</span>

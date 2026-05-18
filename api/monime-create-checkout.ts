@@ -4,8 +4,10 @@ import { z } from "zod";
 const checkoutSchema = z.discriminatedUnion("paymentType", [
   z.object({
     paymentType: z.literal("weekly"),
-    pickupArea: z.string().min(1),
+    originAddress: z.string().min(3),
     campus: z.string().min(1),
+    originLat: z.number().optional(),
+    originLon: z.number().optional(),
   }),
   z.object({
     paymentType: z.literal("trip"),
@@ -16,29 +18,10 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
   }),
 ]);
 
-const WEEKLY_MULTIPLIER = 2 * 6;
+const WEEKLY_MULTIPLIER = 6;
 const TRIP_BASE_RATE = 6;
 const TRIP_MIN_FARE = 20;
 const TRIP_MIN_DISTANCE_KM = 5;
-
-// Internal fare lookup — server-side validation so client can't fake a price
-const getWeeklyPrice = async (
-  supabase: ReturnType<typeof createClient>,
-  pickupArea: string,
-  campus: string
-): Promise<number> => {
-  const { data: zone, error } = await supabase
-    .from("fare_zones")
-    .select("transport_fare")
-    .eq("pickup_area", pickupArea)
-    .eq("campus", campus)
-    .maybeSingle();
-
-  if (error || !zone) {
-    throw new Error("Route not found in fare zones");
-  }
-  return Number(zone.transport_fare) * WEEKLY_MULTIPLIER;
-};
 
 // Mock distances for placeholder mode (mirrors calculate-trip-fare.ts)
 const MOCK_DISTANCES: Record<string, Record<string, number>> = {
@@ -98,7 +81,10 @@ const getTripFare = async (originAddress: string, campus: string, lat?: number, 
     const destLat = dest.lat;
     const destLon = dest.lon;
 
-    console.log(`📍 Checkout: Using EXACT coordinates for ${campus}: Latitude ${destLat}, Longitude ${destLon}`);
+    // Print coordinates to the Vercel terminal so you can verify them!
+    console.log(`📍 Monime Checkout Creation:
+      - Origin (${originAddress}): Lat ${originLat}, Lon ${originLon} (${lat && lon ? 'from client' : 'geocoded via TomTom'})
+      - Campus (${campus}): Lat ${destLat}, Lon ${destLon}`);
 
     const destLatLon = `${destLat},${destLon}`;
     const originLatLon = `${originLat},${originLon}`;
@@ -208,11 +194,12 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: "You already have an active subscription" });
       }
       // Server-side price calculation — client cannot manipulate this
-      amount = await getWeeklyPrice(supabase, payload.pickupArea, payload.campus);
-      pickupArea = payload.pickupArea;
+      const singleFare = await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
+      amount = singleFare * WEEKLY_MULTIPLIER;
+      pickupArea = payload.originAddress;
       campus = payload.campus;
       planTitle = "Easi Ride Weekly Plan";
-      planDescription = `Weekly solo subscription — ${payload.pickupArea} → ${payload.campus}`;
+      planDescription = `Weekly solo subscription — ${payload.originAddress} → ${payload.campus}`;
     } else {
       // Pay per trip
       amount = await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
@@ -236,7 +223,7 @@ export default async function handler(req: any, res: any) {
         paymentType: payload.paymentType,
         pickupArea: pickupArea ?? undefined,
         campus,
-        ...(payload.paymentType === "trip" ? { originAddress: payload.originAddress } : {}),
+        originAddress: payload.originAddress,
       },
     });
 

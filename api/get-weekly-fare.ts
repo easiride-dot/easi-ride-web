@@ -2,16 +2,103 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const schema = z.object({
-  pickupArea: z.string().min(1),
+  originAddress: z.string().min(3),
   campus: z.string().min(1),
+  originLat: z.number().optional(),
+  originLon: z.number().optional(),
 });
 
-const WEEKLY_MULTIPLIER = 2 * 6; // transport_fare × 2 × 6 days
+const BASE_RATE = 6;       // NLe per km
+const MIN_FARE = 20;       // NLe — applied for trips under 5km
+const MIN_DISTANCE_KM = 5; // threshold for minimum fare
+
+const MOCK_DISTANCES: Record<string, Record<string, number>> = {
+  "lumley":       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
+  "aberdeen":     { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8  },
+  "model":        { "Fourah Bay College": 11.0, "IPAM Tower Hill": 9.2,  "Njala University": 178, "Limkokwing": 8.5  },
+  "wilberforce":  { "Fourah Bay College": 10.0, "IPAM Tower Hill": 5.0,  "Njala University": 176, "Limkokwing": 7.0  },
+  "congo cross":  { "Fourah Bay College": 8.5,  "IPAM Tower Hill": 6.2,  "Njala University": 174, "Limkokwing": 6.0  },
+  "murray town":  { "Fourah Bay College": 9.0,  "IPAM Tower Hill": 7.0,  "Njala University": 175, "Limkokwing": 7.5  },
+  "kingtom":      { "Fourah Bay College": 9.5,  "IPAM Tower Hill": 6.5,  "Njala University": 175, "Limkokwing": 7.0  },
+  "brookfields":  { "Fourah Bay College": 11.5, "IPAM Tower Hill": 8.5,  "Njala University": 177, "Limkokwing": 9.0  },
+  "tower hill":   { "Fourah Bay College": 7.0,  "IPAM Tower Hill": 1.5,  "Njala University": 173, "Limkokwing": 5.5  },
+  "central":      { "Fourah Bay College": 8.0,  "IPAM Tower Hill": 4.0,  "Njala University": 174, "Limkokwing": 6.0  },
+};
+
+const DEFAULT_DISTANCE_KM = 9;
+
+const getMockDistance = (origin: string, campus: string): number => {
+  const key = origin.toLowerCase().trim();
+  const exactMatch = MOCK_DISTANCES[key];
+  if (exactMatch && exactMatch[campus] !== undefined) {
+    return exactMatch[campus];
+  }
+  for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
+    if (key.includes(area) && campuses[campus] !== undefined) {
+      return campuses[campus];
+    }
+  }
+  return DEFAULT_DISTANCE_KM;
+};
+
+const callTomTom = async (origin: string, campus: string, lat?: number, lon?: number): Promise<number> => {
+  const apiKey = process.env.TOMTOM_API_KEY;
+  if (!apiKey) throw new Error("TomTom API key not configured");
+
+  let originLat = lat;
+  let originLon = lon;
+
+  if (!originLat || !originLon) {
+    const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
+    const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
+    
+    const geoResponse = await fetch(geoUrl);
+    const geoData = await geoResponse.json();
+
+    if (!geoData.results || geoData.results.length === 0) {
+      throw new Error(`Could not find origin: ${origin}`);
+    }
+
+    originLat = geoData.results[0].position.lat;
+    originLon = geoData.results[0].position.lon;
+  }
+
+  const campusCoords: Record<string, { lat: number, lon: number }> = {
+    "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
+    "IPAM Tower Hill": { lat: 8.484611, lon: -13.230917 },
+    "Limkokwing": { lat: 8.451639, lon: -13.238417 },
+  };
+
+  const dest = campusCoords[campus];
+  if (!dest) {
+    throw new Error(`Unknown campus for routing: ${campus}`);
+  }
+
+  const destLat = dest.lat;
+  const destLon = dest.lon;
+
+  // Print coordinates to the Vercel terminal so you can verify them!
+  console.log(`📍 Weekly Subscription Booking:
+    - Origin (${origin}): Lat ${originLat}, Lon ${originLon} (${lat && lon ? 'from client' : 'geocoded via TomTom'})
+    - Campus (${campus}): Lat ${destLat}, Lon ${destLon}`);
+
+  const destLatLon = `${destLat},${destLon}`;
+  const originLatLon = `${originLat},${originLon}`;
+
+  const dirUrl = `https://api.tomtom.com/routing/1/calculateRoute/${originLatLon}:${destLatLon}/json?key=${apiKey}`;
+  const dirResponse = await fetch(dirUrl);
+  const dirData = await dirResponse.json();
+
+  if (!dirData.routes || dirData.routes.length === 0) {
+    throw new Error(`Routing failed`);
+  }
+
+  return dirData.routes[0].summary.lengthInMeters / 1000;
+};
 
 const getAuthToken = (authorization?: string | string[]) => {
   const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
+  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 };
 
 export default async function handler(req: any, res: any) {
@@ -28,41 +115,43 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
 
+  const { originAddress, campus, originLat, originLon } = parsed.data;
+
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
   const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
   const supabase = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
-  // Validate user session
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
   if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
 
-  // Look up the fare zone — never expose transport_fare to client
-  const { data: zone, error: zoneError } = await supabase
-    .from("fare_zones")
-    .select("transport_fare")
-    .eq("pickup_area", parsed.data.pickupArea)
-    .eq("campus", parsed.data.campus)
-    .maybeSingle();
+  let distanceKm = 0;
+  let isEstimate = false;
 
-  if (zoneError) {
-    console.error("Fare zone lookup error:", zoneError);
-    return res.status(500).json({ error: "Could not look up route fare" });
+  try {
+    distanceKm = await callTomTom(originAddress, campus, originLat, originLon);
+  } catch (err) {
+    console.error("Weekly Subscription Distance calculation error:", err);
+    distanceKm = getMockDistance(originAddress, campus);
+    isEstimate = true;
   }
 
-  if (!zone) {
-    return res.status(404).json({
-      error: "Route not available. This pickup area and campus combination is not yet supported.",
-    });
-  }
+  const singleFare = distanceKm < MIN_DISTANCE_KM
+    ? MIN_FARE
+    : Math.round(BASE_RATE * distanceKm);
 
-  // Calculate weekly price — only this is returned to the client
-  const weeklyPrice = Number(zone.transport_fare) * WEEKLY_MULTIPLIER;
+  // Weekly plan = Single trip fare × 6
+  const weeklyPrice = singleFare * 6;
+
+  console.log(`📍 Weekly Subscription Price for ${originAddress} → ${campus}: ${weeklyPrice} NLe (Distance: ${distanceKm.toFixed(2)}km, Single: ${singleFare} NLe)`);
 
   return res.status(200).json({
-    weeklyPrice,           // e.g. 180 NLe
-    pickupArea: parsed.data.pickupArea,
-    campus: parsed.data.campus,
+    weeklyPrice,
+    distanceKm: Number(distanceKm.toFixed(1)),
+    isEstimate,
+    singleFare,
+    originAddress,
+    campus,
   });
 }

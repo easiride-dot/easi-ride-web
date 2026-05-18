@@ -135,6 +135,9 @@ export default async function handler(req: any, res: any) {
         end_date: endDate.toISOString(),
         rides_used: 0,
         rides_limit: 14,
+        pickup_area: attempt.metadata?.originAddress || attempt.metadata?.pickupArea || null,
+        campus: attempt.metadata?.campus || null,
+        amount_paid: attempt.amount,
       })
       .select("id")
       .single();

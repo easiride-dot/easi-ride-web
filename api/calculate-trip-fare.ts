@@ -3,6 +3,8 @@ import { z } from "zod";
 const schema = z.object({
   originAddress: z.string().min(3),
   campus: z.string().min(1),
+  originLat: z.number().optional(),
+  originLon: z.number().optional(),
 });
 
 const BASE_RATE = 6;       // NLe per km
@@ -82,11 +84,10 @@ const callTomTom = async (origin: string, campus: string, lat?: number, lon?: nu
   const destLat = dest.lat;
   const destLon = dest.lon;
 
-  // Print the exact coordinates to the Vercel terminal so you can verify them!
-  console.log(`📍 Using EXACT coordinates for ${campus}: Latitude ${destLat}, Longitude ${destLon}`);
-  if (!lat || !lon) {
-    console.log(`📍 TomTom located Origin (${origin}) at: Latitude ${originLat}, Longitude ${originLon}`);
-  }
+  // Print coordinates to the Vercel terminal so you can verify them!
+  console.log(`📍 Pay Per Trip Booking:
+    - Origin (${origin}): Lat ${originLat}, Lon ${originLon} (${lat && lon ? 'from client' : 'geocoded via TomTom'})
+    - Campus (${campus}): Lat ${destLat}, Lon ${destLon}`);
 
   const destLatLon = `${destLat},${destLon}`;
   const originLatLon = `${originLat},${originLon}`;
