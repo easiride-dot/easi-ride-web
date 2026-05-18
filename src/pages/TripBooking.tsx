@@ -43,15 +43,35 @@ const TripBooking = () => {
       toast.error("Geolocation is not supported by your browser");
       return;
     }
+    
+    const toastId = toast.loading("Detecting your location...");
+    
     navigator.geolocation.getCurrentPosition(
-      () => {
-        // In placeholder mode, we just fill a descriptive label
-        setPickup("Current location");
-        setFare(null);
-        toast.success("Location detected");
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`;
+          
+          const response = await fetch(url, {
+            headers: { "User-Agent": "EasiRideApp/1.0" }
+          });
+          const data = await response.json();
+          
+          if (data && data.address) {
+            const a = data.address;
+            const placeName = a.neighbourhood || a.suburb || a.road || a.residential || "Freetown";
+            setPickup(placeName);
+            toast.success("Location detected", { id: toastId });
+          } else {
+            toast.error("Could not get street name. Please type it.", { id: toastId });
+          }
+          setFare(null);
+        } catch (error) {
+          toast.error("Could not detect street name. Please type it.", { id: toastId });
+        }
       },
       () => {
-        toast.error("Could not detect your location. Please type it in.");
+        toast.error("Could not access GPS. Please type your location.", { id: toastId });
       }
     );
   };
