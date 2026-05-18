@@ -102,6 +102,27 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ status: mappedStatus });
     }
 
+    if (attempt.plan_type === "trip") {
+      const rideId = attempt.metadata?.rideId;
+
+      await supabase
+        .from("payment_attempts")
+        .update({
+          status: "completed",
+          monime_status: monimeStatus,
+        })
+        .eq("id", attempt.id);
+
+      if (rideId) {
+        await supabase
+          .from("rides")
+          .update({ payment_status: "paid" })
+          .eq("id", rideId);
+      }
+
+      return res.status(200).json({ status: "completed", rideId });
+    }
+
     const { data: existingSubscription } = await supabase
       .from("subscriptions")
       .select("id")

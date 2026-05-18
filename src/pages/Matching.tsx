@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Check, MapPin, Navigation, LucideIcon } from "lucide-react";
+import { Phone, MessageCircle, Check, MapPin, Navigation, LucideIcon, Loader2, ShieldAlert } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Matching = () => {
   const { id } = useParams();
@@ -10,6 +12,41 @@ const Matching = () => {
   const { rides, loading } = useRides();
   const ride = rides.find((r) => r.id === id);
   const [matched, setMatched] = useState(ride?.status === "assigned");
+  const [paying, setPaying] = useState(false);
+
+  const handlePayForTrip = async () => {
+    if (!ride) return;
+    setPaying(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch("/api/monime-create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          paymentType: "trip",
+          rideId: ride.id,
+          originAddress: ride.pickup,
+          campus: ride.destination
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.redirectUrl) {
+        toast.error(result?.error || "Unable to start payment");
+        setPaying(false);
+        return;
+      }
+
+      window.location.href = result.redirectUrl;
+    } catch {
+      toast.error("Unable to start payment");
+      setPaying(false);
+    }
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -49,7 +86,11 @@ const Matching = () => {
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
           <Check className="h-3.5 w-3.5" strokeWidth={3} />
         </span>
-        {ride.status === "assigned" ? `Driver assigned • Arriving in ${ride.etaMinutes || "?"} min` : "Finding your driver..."}
+        {ride.status === "assigned"
+          ? (ride.paymentType === "trip" && ride.paymentStatus !== "paid"
+              ? "Driver assigned • Awaiting payment"
+              : `Driver assigned • Arriving in ${ride.etaMinutes || "?"} min`)
+          : "Finding your driver..."}
       </div>
 
       <div className="glass-card overflow-hidden rounded-3xl shadow-elevated">
@@ -61,27 +102,54 @@ const Matching = () => {
             <div className="font-display text-lg font-semibold">{ride.driverName || "Assigning..."}</div>
             <div className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</div>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-muted-foreground">ETA</div>
-            <div className="font-display text-2xl font-semibold">{ride.etaMinutes ?? "?"}m</div>
+          {ride.paymentType !== "trip" || ride.paymentStatus === "paid" ? (
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">ETA</div>
+              <div className="font-display text-2xl font-semibold">{ride.etaMinutes ?? "?"}m</div>
+            </div>
+          ) : null}
+        </div>
+        {ride.paymentType === "trip" && ride.paymentStatus !== "paid" ? (
+          <div className="p-6 border-t border-hairline/70 bg-amber-500/5">
+            <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 mb-4">
+              <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <h4 className="font-display text-sm font-semibold text-amber-200">Payment Pending</h4>
+                <p className="text-xs text-amber-300/80 mt-1 leading-normal">
+                  Driver {ride.driverName || "assigned"} is waiting! Pay the {ride.price} NLe fare to confirm your booking and notify them to depart.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handlePayForTrip}
+              disabled={paying}
+              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-background font-display font-semibold rounded-xl active:scale-[0.98] transition-transform duration-200"
+            >
+              {paying ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Preparing secure checkout...</>
+              ) : (
+                <>Pay {ride.price} NLe with Monime</>
+              )}
+            </Button>
           </div>
-        </div>
-        <div className="grid grid-cols-2 border-t border-hairline/70">
-          <a
-            href={`tel:${ride.driverPhone}`}
-            className="flex items-center justify-center gap-2 py-4 text-sm hover:bg-secondary/40"
-          >
-            <Phone className="h-4 w-4" /> Call
-          </a>
-          <a
-            href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi, I just booked an Easi Ride to " + ride.destination)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-center gap-2 border-l border-hairline/70 py-4 text-sm hover:bg-secondary/40"
-          >
-            <MessageCircle className="h-4 w-4" /> WhatsApp
-          </a>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 border-t border-hairline/70">
+            <a
+              href={`tel:${ride.driverPhone}`}
+              className="flex items-center justify-center gap-2 py-4 text-sm hover:bg-secondary/40 font-medium"
+            >
+              <Phone className="h-4 w-4" /> Call
+            </a>
+            <a
+              href={`https://wa.me/${waNumber}?text=${encodeURIComponent("Hi, I just booked an Easi Ride to " + ride.destination)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 border-l border-hairline/70 py-4 text-sm hover:bg-secondary/40 font-medium"
+            >
+              <MessageCircle className="h-4 w-4" /> WhatsApp
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="glass-card rounded-2xl p-5">

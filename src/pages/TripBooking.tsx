@@ -16,7 +16,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { ShieldAlert } from "lucide-react";
 
 const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
-const TIME_SLOTS = ["06:30", "07:00", "07:30", "08:00", "16:00", "17:00"];
 
 interface FareResult {
   distanceKm: number;
@@ -35,10 +34,10 @@ const TripBooking = () => {
   const [originLon, setOriginLon] = useState<number | undefined>(undefined);
   
   const [campus, setCampus] = useState(CAMPUSES[0]);
-  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[1]);
+  const [timeSlot, setTimeSlot] = useState("08:00");
   const [fare, setFare] = useState<FareResult | null>(null);
   const [calculating, setCalculating] = useState(false);
-  const [paying, setPaying] = useState(false);
+  const [booking, setBooking] = useState(false);
 
   const isVerified = profile?.verification_status === "approved";
 
@@ -113,7 +112,7 @@ const TripBooking = () => {
     }
   };
 
-  const handlePay = async () => {
+  const handleBookTrip = async () => {
     if (!user) {
       toast.error("Please sign in first");
       navigate("/auth");
@@ -124,36 +123,35 @@ const TripBooking = () => {
       return;
     }
 
-    setPaying(true);
+    setBooking(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data, error } = await supabase
+        .from("rides")
+        .insert({
+          user_id: user.id,
+          pickup: pickup.trim(),
+          destination: campus,
+          time_slot: timeSlot,
+          type: "solo", // single trip is solo
+          price: fare.fareAmount,
+          payment_type: "trip",
+          payment_status: "pending",
+          status: "pending"
+        })
+        .select("id")
+        .single();
 
-      const response = await fetch("/api/monime-create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          paymentType: "trip",
-          originAddress: pickup.trim(),
-          campus,
-          originLat,
-          originLon
-        }),
-      });
-
-      const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.redirectUrl) {
-        toast.error(result?.error || "Unable to start payment");
-        setPaying(false);
+      if (error) {
+        toast.error(error.message);
         return;
       }
 
-      window.location.href = result.redirectUrl;
-    } catch {
-      toast.error("Unable to start payment");
-      setPaying(false);
+      toast.success("Ride requested successfully!");
+      navigate(`/matching/${data.id}`);
+    } catch (err) {
+      toast.error("Could not request your ride. Please try again.");
+    } finally {
+      setBooking(false);
     }
   };
 
@@ -246,26 +244,19 @@ const TripBooking = () => {
               </div>
             </div>
 
-            {/* Time slot */}
+            {/* Time selection */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" /> Time slot
+                <Clock className="h-4 w-4" /> Pickup Time
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {TIME_SLOTS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTimeSlot(t)}
-                    className={`rounded-xl border px-3 py-3 text-sm font-medium transition ${
-                      t === timeSlot
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-hairline bg-secondary/30 text-foreground hover:border-foreground/50"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              <div className="relative">
+                <Input
+                  type="time"
+                  value={timeSlot}
+                  onChange={(e) => setTimeSlot(e.target.value)}
+                  className="h-12 rounded-xl border border-hairline bg-secondary/30 text-foreground px-4 text-base focus-visible:ring-1 focus-visible:ring-foreground/50 w-full"
+                  required
+                />
               </div>
             </div>
 
@@ -327,14 +318,14 @@ const TripBooking = () => {
 
                 <div className="px-5 pb-5">
                   <Button
-                    className="w-full h-14"
-                    onClick={handlePay}
-                    disabled={paying}
+                    className="w-full h-14 font-display text-base font-semibold tracking-wide shadow-lg hover:shadow-xl active:scale-[0.98] transition-transform duration-200"
+                    onClick={handleBookTrip}
+                    disabled={booking}
                   >
-                    {paying ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Opening secure checkout...</>
+                    {booking ? (
+                      <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Booking your ride...</>
                     ) : (
-                      <><CreditCard className="h-4 w-4 mr-2" /> Pay {fare.fareAmount} NLe with Monime</>
+                      <><ArrowRight className="h-5 w-5 mr-2" /> Book Ride for {fare.fareAmount} NLe</>
                     )}
                   </Button>
                 </div>

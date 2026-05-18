@@ -15,6 +15,7 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
     campus: z.string().min(1),
     originLat: z.number().optional(),
     originLon: z.number().optional(),
+    rideId: z.string().optional(),
   }),
 ]);
 
@@ -202,7 +203,18 @@ export default async function handler(req: any, res: any) {
       planDescription = `Weekly solo subscription — ${payload.originAddress} → ${payload.campus}`;
     } else {
       // Pay per trip
-      amount = await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
+      let dbPrice: number | null = null;
+      if (payload.rideId) {
+        const { data: ride } = await supabase
+          .from("rides")
+          .select("price")
+          .eq("id", payload.rideId)
+          .maybeSingle();
+        if (ride) {
+          dbPrice = ride.price;
+        }
+      }
+      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
       campus = payload.campus;
       planTitle = "Easi Ride — Pay Per Trip";
       planDescription = `Single trip from ${payload.originAddress} to ${payload.campus}`;
@@ -224,6 +236,7 @@ export default async function handler(req: any, res: any) {
         pickupArea: pickupArea ?? undefined,
         campus,
         originAddress: payload.originAddress,
+        rideId: payload.rideId ?? undefined,
       },
     });
 
@@ -234,7 +247,9 @@ export default async function handler(req: any, res: any) {
       throw new AppError(`Could not create payment attempt: ${getErrorMessage(attemptError)}`, 500, getErrorCode(attemptError));
     }
 
-    const completePath = payload.paymentType === "weekly" ? "/checkout/complete" : "/trip/complete";
+    const completePath = payload.paymentType === "weekly" 
+      ? "/checkout/complete" 
+      : `/matching/${payload.rideId || ""}`;
 
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",

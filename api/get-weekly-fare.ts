@@ -108,7 +108,10 @@ export default async function handler(req: any, res: any) {
   }
 
   const token = getAuthToken(req.headers.authorization);
-  if (!token) return res.status(401).json({ error: "Missing auth token" });
+  if (!token) {
+    console.error("❌ Weekly Subscription Price: Missing authorization token in request headers");
+    return res.status(401).json({ error: "Missing auth token" });
+  }
 
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -117,14 +120,33 @@ export default async function handler(req: any, res: any) {
 
   const { originAddress, campus, originLat, originLon } = parsed.data;
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY!;
+  const getEnv = (name: string) => {
+    const value = process.env[name];
+    if (!value) return "";
+    return value;
+  };
+
+  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ Weekly Subscription Price: Supabase client variables are undefined!", { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
+    return res.status(500).json({ error: "Supabase environment variables not configured" });
+  }
+
   const supabase = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
 
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
+  if (userError || !user) {
+    console.error("❌ Weekly Subscription Price: Auth token verification failed!", {
+      tokenLength: token?.length,
+      userError: userError?.message || userError,
+      supabaseUrl,
+    });
+    return res.status(401).json({ error: "Invalid auth token" });
+  }
 
   let distanceKm = 0;
   let isEstimate = false;

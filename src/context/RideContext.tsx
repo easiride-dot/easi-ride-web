@@ -20,6 +20,7 @@ export interface Ride {
   createdAt: string;
   userId: string;
   paymentType: "subscription" | "trip";
+  paymentStatus: "pending" | "paid" | "failed";
   distanceKm?: number;
   fareAmount?: number;
 }
@@ -51,6 +52,7 @@ type RideRow = {
   created_at: string;
   updated_at: string;
   payment_type: "subscription" | "trip";
+  payment_status: string | null;
   distance_km: number | null;
   fare_amount: number | null;
 };
@@ -70,6 +72,7 @@ const mapRow = (r: RideRow): Ride => ({
   createdAt: r.created_at,
   userId: r.user_id,
   paymentType: (r.payment_type ?? "subscription") as "subscription" | "trip",
+  paymentStatus: (r.payment_status ?? "paid") as "pending" | "paid" | "failed",
   distanceKm: r.distance_km ?? undefined,
   fareAmount: r.fare_amount ?? undefined,
 });

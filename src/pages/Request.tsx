@@ -10,7 +10,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
-const TIME_SLOTS = ["06:30", "07:00", "07:30", "08:00", "16:00", "17:00"];
 const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
 const Request = () => {
@@ -21,7 +20,7 @@ const Request = () => {
 
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState(CAMPUSES[0]);
-  const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[1]);
+  const [timeSlot, setTimeSlot] = useState("08:00");
   const rideType = "solo";
 
   const detect = () => {
@@ -145,29 +144,19 @@ const Request = () => {
           </div>
         </div>
 
-        {/* Time slot */}
+        {/* Time selection */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" /> Time slot
+            <Clock className="h-4 w-4" /> Pickup Time
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {TIME_SLOTS.map((t) => {
-              const active = t === timeSlot;
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTimeSlot(t)}
-                  className={`rounded-xl border px-3 py-3 text-sm font-medium transition ${
-                    active
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-hairline bg-secondary/30 text-foreground hover:border-foreground/50"
-                  }`}
-                >
-                  {t}
-                </button>
-              );
-            })}
+          <div className="relative">
+            <Input
+              type="time"
+              value={timeSlot}
+              onChange={(e) => setTimeSlot(e.target.value)}
+              className="h-12 rounded-xl border border-hairline bg-secondary/30 text-foreground px-4 text-base focus-visible:ring-1 focus-visible:ring-foreground/50 w-full"
+              required
+            />
           </div>
         </div>
 
