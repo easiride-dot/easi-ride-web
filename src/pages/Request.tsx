@@ -260,7 +260,7 @@ const Request = () => {
               type="time"
               value={timeSlot}
               onChange={(e) => setTimeSlot(e.target.value)}
-              className="h-12 rounded-xl border border-hairline bg-secondary/30 text-foreground px-4 text-base focus-visible:ring-1 focus-visible:ring-foreground/50 w-full"
+              className="h-12 rounded-xl border border-hairline bg-secondary/30 text-foreground px-4 text-base focus-visible:ring-1 focus-visible:ring-foreground/50 w-full max-w-[160px]"
               required
             />
           </div>
