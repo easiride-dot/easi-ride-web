@@ -39,6 +39,7 @@ const TripBooking = () => {
   const [calculating, setCalculating] = useState(false);
   const [booking, setBooking] = useState(false);
   const [isReturnTrip, setIsReturnTrip] = useState(false);
+  const [pickupDetails, setPickupDetails] = useState("");
 
   const isVerified = profile?.verification_status === "approved";
 
@@ -126,12 +127,16 @@ const TripBooking = () => {
 
     setBooking(true);
     try {
+      const customLocation = pickupDetails.trim() 
+        ? `${pickup.trim()} (${pickupDetails.trim()})`
+        : pickup.trim();
+
       const { data, error } = await supabase
         .from("rides")
         .insert({
           user_id: user.id,
-          pickup: isReturnTrip ? campus : pickup.trim(),
-          destination: isReturnTrip ? pickup.trim() : campus,
+          pickup: isReturnTrip ? campus : customLocation,
+          destination: isReturnTrip ? customLocation : campus,
           time_slot: timeSlot,
           type: "solo", // single trip is solo
           price: fare.fareAmount,
@@ -331,6 +336,22 @@ const TripBooking = () => {
                   </div>
                 </>
               )}
+              <div className="border-t border-hairline/60" />
+              <div className="flex items-center gap-3 p-4 bg-secondary/5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="trip-details" className="text-xs text-muted-foreground">Landmark / Lane details (optional)</Label>
+                  <Input
+                    id="trip-details"
+                    value={pickupDetails}
+                    onChange={(e) => setPickupDetails(e.target.value)}
+                    placeholder="e.g., opposite mosque, blue gate, Lane 3..."
+                    className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0 text-foreground font-medium placeholder:font-normal"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Time selection */}

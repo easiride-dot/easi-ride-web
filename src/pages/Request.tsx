@@ -22,6 +22,7 @@ const Request = () => {
   const [destination, setDestination] = useState(CAMPUSES[0]);
   const [timeSlot, setTimeSlot] = useState("08:00");
   const [isReturnTrip, setIsReturnTrip] = useState(false);
+  const [pickupDetails, setPickupDetails] = useState("");
   const rideType = "solo";
 
   const detect = () => {
@@ -45,11 +46,15 @@ const Request = () => {
       toast.error("Pickup location too long");
       return;
     }
+    const customLocation = pickupDetails.trim() 
+      ? `${pickup.trim()} (${pickupDetails.trim()})`
+      : pickup.trim();
+
     setSubmitting(true);
     try {
       const ride = await createRide({
-        pickup: isReturnTrip ? destination : pickup.trim(),
-        destination: isReturnTrip ? pickup.trim() : destination,
+        pickup: isReturnTrip ? destination : customLocation,
+        destination: isReturnTrip ? customLocation : destination,
         timeSlot,
         type: rideType,
         price: 0
@@ -227,6 +232,22 @@ const Request = () => {
               </div>
             </>
           )}
+          <div className="border-t border-hairline/60" />
+          <div className="flex items-center gap-3 p-4 bg-secondary/5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="trip-details" className="text-xs text-muted-foreground">Landmark / Lane details (optional)</Label>
+              <Input
+                id="trip-details"
+                value={pickupDetails}
+                onChange={(e) => setPickupDetails(e.target.value)}
+                placeholder="e.g., opposite mosque, blue gate, Lane 3..."
+                className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0 text-foreground font-medium placeholder:font-normal"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Time selection */}
