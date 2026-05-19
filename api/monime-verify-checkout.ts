@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { rateLimit } from "./_rate-limit";
 
 const verifySchema = z.object({
   orderId: z.string().trim().min(1).max(255),
@@ -52,6 +53,11 @@ export default async function handler(req: any, res: any) {
     } = await supabase.auth.getUser(token);
 
     if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
+
+    // Rate limiting checkout verifications: max 15 requests per minute
+    if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 15 }, user.id)) {
+      return res.status(429).json({ error: "Too many verification requests. Please try again in a few seconds." });
+    }
 
     const { data: attempt, error: attemptError } = await supabase
       .from("payment_attempts")

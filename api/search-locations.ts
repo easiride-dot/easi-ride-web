@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { rateLimit } from "./_rate-limit";
 
 const schema = z.object({
   query: z.string().min(2),
@@ -44,6 +45,11 @@ export default async function handler(req: any, res: any) {
   if (userError || !user) {
     console.error("❌ Search Locations: Auth token verification failed!", userError?.message || userError);
     return res.status(401).json({ error: "Invalid auth token" });
+  }
+
+  // Rate limiting: max 60 requests per minute (higher for typing autocomplete suggestions)
+  if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 60 }, user.id)) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
   const query = req.query.query;

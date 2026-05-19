@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { rateLimit } from "./_rate-limit";
 
 const schema = z.object({
   originAddress: z.string().min(3),
@@ -146,6 +147,11 @@ export default async function handler(req: any, res: any) {
       supabaseUrl,
     });
     return res.status(401).json({ error: "Invalid auth token" });
+  }
+
+  // Rate limiting: max 30 requests per minute
+  if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 30 }, user.id)) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
   let distanceKm = 0;

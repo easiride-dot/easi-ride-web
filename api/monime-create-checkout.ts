@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { rateLimit } from "./_rate-limit";
 
 const checkoutSchema = z.discriminatedUnion("paymentType", [
   z.object({
@@ -163,6 +164,11 @@ export default async function handler(req: any, res: any) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
+
+    // Rate limiting checkout creations: max 5 requests per minute
+    if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 5 }, user.id)) {
+      return res.status(429).json({ error: "Too many checkout requests. Please wait a minute and try again." });
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
