@@ -8,21 +8,21 @@ const schema = z.object({
   originLon: z.number().optional(),
 });
 
-const BASE_RATE = 6;       // NLe per km
-const MIN_FARE = 20;       // NLe — applied for trips under 5km
+const BASE_RATE = 7;       // NLe per km
+const MIN_FARE = 25;       // NLe — applied for trips under 5km
 const MIN_DISTANCE_KM = 5; // threshold for minimum fare
 
 const MOCK_DISTANCES: Record<string, Record<string, number>> = {
-  "lumley":       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
-  "aberdeen":     { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8  },
-  "model":        { "Fourah Bay College": 11.0, "IPAM Tower Hill": 9.2,  "Njala University": 178, "Limkokwing": 8.5  },
-  "wilberforce":  { "Fourah Bay College": 10.0, "IPAM Tower Hill": 5.0,  "Njala University": 176, "Limkokwing": 7.0  },
-  "congo cross":  { "Fourah Bay College": 8.5,  "IPAM Tower Hill": 6.2,  "Njala University": 174, "Limkokwing": 6.0  },
-  "murray town":  { "Fourah Bay College": 9.0,  "IPAM Tower Hill": 7.0,  "Njala University": 175, "Limkokwing": 7.5  },
-  "kingtom":      { "Fourah Bay College": 9.5,  "IPAM Tower Hill": 6.5,  "Njala University": 175, "Limkokwing": 7.0  },
-  "brookfields":  { "Fourah Bay College": 11.5, "IPAM Tower Hill": 8.5,  "Njala University": 177, "Limkokwing": 9.0  },
-  "tower hill":   { "Fourah Bay College": 7.0,  "IPAM Tower Hill": 1.5,  "Njala University": 173, "Limkokwing": 5.5  },
-  "central":      { "Fourah Bay College": 8.0,  "IPAM Tower Hill": 4.0,  "Njala University": 174, "Limkokwing": 6.0  },
+  "lumley": { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
+  "aberdeen": { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8 },
+  "model": { "Fourah Bay College": 11.0, "IPAM Tower Hill": 9.2, "Njala University": 178, "Limkokwing": 8.5 },
+  "wilberforce": { "Fourah Bay College": 10.0, "IPAM Tower Hill": 5.0, "Njala University": 176, "Limkokwing": 7.0 },
+  "congo cross": { "Fourah Bay College": 8.5, "IPAM Tower Hill": 6.2, "Njala University": 174, "Limkokwing": 6.0 },
+  "murray town": { "Fourah Bay College": 9.0, "IPAM Tower Hill": 7.0, "Njala University": 175, "Limkokwing": 7.5 },
+  "kingtom": { "Fourah Bay College": 9.5, "IPAM Tower Hill": 6.5, "Njala University": 175, "Limkokwing": 7.0 },
+  "brookfields": { "Fourah Bay College": 11.5, "IPAM Tower Hill": 8.5, "Njala University": 177, "Limkokwing": 9.0 },
+  "tower hill": { "Fourah Bay College": 7.0, "IPAM Tower Hill": 1.5, "Njala University": 173, "Limkokwing": 5.5 },
+  "central": { "Fourah Bay College": 8.0, "IPAM Tower Hill": 4.0, "Njala University": 174, "Limkokwing": 6.0 },
 };
 
 const DEFAULT_DISTANCE_KM = 9;
@@ -51,7 +51,7 @@ const callTomTom = async (origin: string, campus: string, lat?: number, lon?: nu
   if (!originLat || !originLon) {
     const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
     const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
-    
+
     const geoResponse = await fetch(geoUrl);
     const geoData = await geoResponse.json();
 

@@ -165,11 +165,10 @@ const Index = () => {
                 </span>
               </div>
               <p className="text-sm text-background/70 mb-6">One trip, one payment. Perfect for occasional rides.</p>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="font-display text-5xl font-semibold tracking-tight">6 NLe</span>
-                <span className="text-sm text-background/70">/ km</span>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="font-display text-4xl font-semibold tracking-tight">Route-based</span>
               </div>
-              <p className="text-xs text-background/50 mb-6">Minimum 20 NLe · Calculated by distance</p>
+              <p className="text-xs text-background/50 mb-6">Minimum 25 NLe · Calculated by distance</p>
               <ul className="space-y-3 text-sm mb-8 flex-1">
                 {["Book any single trip", "Price shown before you pay", "No commitment, no recurring fee", "Same verified drivers"].map((p) => (
                   <li key={p} className="flex items-start gap-2.5">

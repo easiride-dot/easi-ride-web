@@ -21,6 +21,7 @@ const Request = () => {
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState(CAMPUSES[0]);
   const [timeSlot, setTimeSlot] = useState("08:00");
+  const [isReturnTrip, setIsReturnTrip] = useState(false);
   const rideType = "solo";
 
   const detect = () => {
@@ -46,7 +47,13 @@ const Request = () => {
     }
     setSubmitting(true);
     try {
-      const ride = await createRide({ pickup: pickup.trim(), destination, timeSlot, type: rideType, price: 0 });
+      const ride = await createRide({
+        pickup: isReturnTrip ? destination : pickup.trim(),
+        destination: isReturnTrip ? pickup.trim() : destination,
+        timeSlot,
+        type: rideType,
+        price: 0
+      });
 
       if (!ride) {
         toast.error("Could not create ride. Please try again.");
@@ -99,49 +106,127 @@ const Request = () => {
         </div>
       ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Direction Toggle tabs */}
+        <div className="flex p-1 bg-secondary/30 rounded-xl border border-hairline/40 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setIsReturnTrip(false)}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+              !isReturnTrip
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Home → College
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsReturnTrip(true)}
+            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+              isReturnTrip
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            College → Home
+          </button>
+        </div>
+
         {/* Locations card */}
         <div className="glass-card overflow-hidden rounded-2xl">
-          <div className="relative flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
-              <MapPin className="h-4 w-4" />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="pickup" className="text-xs text-muted-foreground">Pickup</Label>
-              <Input
-                id="pickup"
-                value={pickup}
-                onChange={(e) => setPickup(e.target.value)}
-                placeholder="Enter your location"
-                className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={detect}
-              className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
-              aria-label="Detect my location"
-            >
-              <Locate className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="border-t border-hairline/60" />
-          <div className="flex items-center gap-3 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
-              <Navigation className="h-4 w-4" />
-            </div>
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Destination</Label>
-              <select
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
-              >
-                {CAMPUSES.map((c) => (
-                  <option key={c} value={c} className="bg-background">{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {!isReturnTrip ? (
+            <>
+              {/* Row 1: Custom Location (Pickup) */}
+              <div className="relative flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="pickup" className="text-xs text-muted-foreground">Pickup Location</Label>
+                  <Input
+                    id="pickup"
+                    value={pickup}
+                    onChange={(e) => setPickup(e.target.value)}
+                    placeholder="Enter your location"
+                    className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={detect}
+                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Detect my location"
+                >
+                  <Locate className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="border-t border-hairline/60" />
+              {/* Row 2: College (Destination) */}
+              <div className="flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                  <Navigation className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Destination Campus</Label>
+                  <select
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                  >
+                    {CAMPUSES.map((c) => (
+                      <option key={c} value={c} className="bg-background">{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Row 1: College (Pickup) */}
+              <div className="relative flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                  <Navigation className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground">Pickup Campus</Label>
+                  <select
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                  >
+                    {CAMPUSES.map((c) => (
+                      <option key={c} value={c} className="bg-background">{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="border-t border-hairline/60" />
+              {/* Row 2: Custom Location (Destination) */}
+              <div className="flex items-center gap-3 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary border border-hairline">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="destination-custom" className="text-xs text-muted-foreground">Destination Location</Label>
+                  <Input
+                    id="destination-custom"
+                    value={pickup}
+                    onChange={(e) => setPickup(e.target.value)}
+                    placeholder="Enter your location"
+                    className="h-8 border-0 bg-transparent px-0 text-base focus-visible:ring-0"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={detect}
+                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
+                  aria-label="Detect my location"
+                >
+                  <Locate className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Time selection */}

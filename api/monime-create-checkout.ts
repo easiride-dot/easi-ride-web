@@ -20,8 +20,8 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
 ]);
 
 const WEEKLY_MULTIPLIER = 6;
-const TRIP_BASE_RATE = 6;
-const TRIP_MIN_FARE = 20;
+const TRIP_BASE_RATE = 7;
+const TRIP_MIN_FARE = 25;
 const TRIP_MIN_DISTANCE_KM = 5;
 
 // Mock distances for placeholder mode (mirrors calculate-trip-fare.ts)

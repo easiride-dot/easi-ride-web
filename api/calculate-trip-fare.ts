@@ -7,8 +7,8 @@ const schema = z.object({
   originLon: z.number().optional(),
 });
 
-const BASE_RATE = 6;       // NLe per km
-const MIN_FARE = 20;       // NLe — applied for trips under 5km
+const BASE_RATE = 7;       // NLe per km
+const MIN_FARE = 25;       // NLe — applied for trips under 5km
 const MIN_DISTANCE_KM = 5; // threshold for minimum fare
 
 // ============================================================
