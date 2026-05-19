@@ -1,13 +1,49 @@
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const schema = z.object({
   query: z.string().min(2),
 });
 
+const getAuthToken = (authorization?: string | string[]) => {
+  const value = Array.isArray(authorization) ? authorization[0] : authorization;
+  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const token = getAuthToken(req.headers.authorization);
+  if (!token) {
+    console.error("❌ Search Locations: Missing authorization token");
+    return res.status(401).json({ error: "Missing auth token" });
+  }
+
+  const getEnv = (name: string) => {
+    const value = process.env[name];
+    if (!value) return "";
+    return value;
+  };
+
+  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ Search Locations: Supabase client variables are undefined!");
+    return res.status(500).json({ error: "Supabase environment variables not configured" });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !user) {
+    console.error("❌ Search Locations: Auth token verification failed!", userError?.message || userError);
+    return res.status(401).json({ error: "Invalid auth token" });
   }
 
   const query = req.query.query;

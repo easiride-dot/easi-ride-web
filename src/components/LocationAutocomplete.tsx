@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { MapPin, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface LocationSuggestion {
   address: string;
@@ -46,7 +47,12 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
 
       setLoading(true);
       try {
-        const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`, {
+          headers: token ? { "Authorization": `Bearer ${token}` } : undefined
+        });
         const data = await res.json();
         if (data && data.suggestions) {
           setSuggestions(data.suggestions);

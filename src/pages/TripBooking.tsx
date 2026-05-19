@@ -91,9 +91,15 @@ const TripBooking = () => {
     setCalculating(true);
     setFare(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const response = await fetch("/api/calculate-trip-fare", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ 
           originAddress: pickup.trim(), 
           campus,

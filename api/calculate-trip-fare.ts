@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const schema = z.object({
@@ -6,6 +7,11 @@ const schema = z.object({
   originLat: z.number().optional(),
   originLon: z.number().optional(),
 });
+
+const getAuthToken = (authorization?: string | string[]) => {
+  const value = Array.isArray(authorization) ? authorization[0] : authorization;
+  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
+};
 
 const BASE_RATE = 7;       // NLe per km
 const MIN_FARE = 25;       // NLe — applied for trips under 5km
@@ -107,6 +113,36 @@ export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const token = getAuthToken(req.headers.authorization);
+  if (!token) {
+    console.error("❌ Calculate Trip Fare: Missing authorization token");
+    return res.status(401).json({ error: "Missing auth token" });
+  }
+
+  const getEnv = (name: string) => {
+    const value = process.env[name];
+    if (!value) return "";
+    return value;
+  };
+
+  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ Calculate Trip Fare: Supabase client variables are undefined!");
+    return res.status(500).json({ error: "Supabase environment variables not configured" });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !user) {
+    console.error("❌ Calculate Trip Fare: Auth token verification failed!", userError?.message || userError);
+    return res.status(401).json({ error: "Invalid auth token" });
   }
 
   const parsed = schema.safeParse(req.body);
