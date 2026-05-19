@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { MapPin, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { parseApiJson } from "@/lib/parseApiResponse";
 
 export interface LocationSuggestion {
   address: string;
@@ -51,10 +52,15 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
         const token = session?.access_token;
 
         const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`, {
-          headers: token ? { "Authorization": `Bearer ${token}` } : undefined
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
-        const data = await res.json();
-        if (data && data.suggestions) {
+        const { ok, data, error } = await parseApiJson<{ suggestions?: LocationSuggestion[]; error?: string }>(res);
+        if (!ok) {
+          if (error) console.error("Location search failed:", error);
+          setSuggestions([]);
+          return;
+        }
+        if (data?.suggestions) {
           setSuggestions(data.suggestions);
         }
       } catch (err) {

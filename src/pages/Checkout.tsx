@@ -10,6 +10,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { ShieldAlert } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
+import { parseApiJson } from "@/lib/parseApiResponse";
 
 const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
@@ -44,24 +45,24 @@ const Checkout = () => {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
 
-          const response = await fetch('/api/reverse-geocode', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          const response = await fetch("/api/reverse-geocode", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
-            body: JSON.stringify({ lat: latitude, lon: longitude })
+            body: JSON.stringify({ lat: latitude, lon: longitude }),
           });
-          
-          const data = await response.json();
-          
-          if (response.ok && data.placeName) {
+
+          const { ok, data, error } = await parseApiJson<{ placeName?: string; error?: string }>(response);
+
+          if (ok && data?.placeName) {
             setPickup(data.placeName);
             setOriginLat(latitude);
             setOriginLon(longitude);
             toast.success("Location detected", { id: toastId });
           } else {
-            toast.error(data.error || "Could not get street name. Please type it.", { id: toastId });
+            toast.error(error || "Could not get street name. Please type it.", { id: toastId });
           }
           setWeeklyPrice(null);
         } catch (error) {

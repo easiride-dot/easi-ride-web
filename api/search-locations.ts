@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { rateLimit } from "./_rate-limit";
+import { rateLimit } from "./_rate-limit.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
