@@ -41,9 +41,15 @@ const Checkout = () => {
         try {
           const { latitude, longitude } = position.coords;
           
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
           const response = await fetch('/api/reverse-geocode', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({ lat: latitude, lon: longitude })
           });
           
