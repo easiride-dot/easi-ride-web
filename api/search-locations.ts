@@ -2,8 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit";
 
+const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
+
 const schema = z.object({
-  query: z.string().min(2),
+  query: z.string().min(2).max(150).transform(sanitize),
 });
 
 const getAuthToken = (authorization?: string | string[]) => {
@@ -12,6 +14,10 @@ const getAuthToken = (authorization?: string | string[]) => {
 };
 
 export default async function handler(req: any, res: any) {
+  if (req.query.query && String(req.query.query).length > 200) {
+    return res.status(400).json({ error: "Search query too long" });
+  }
+
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Method not allowed" });

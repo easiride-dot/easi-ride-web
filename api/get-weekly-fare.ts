@@ -2,11 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit";
 
+const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
+
 const schema = z.object({
-  originAddress: z.string().min(3),
-  campus: z.string().min(1),
-  originLat: z.number().optional(),
-  originLon: z.number().optional(),
+  originAddress: z.string().min(3).max(250).transform(sanitize),
+  campus: z.string().min(1).max(100).transform(sanitize),
+  originLat: z.number().min(-90).max(90).optional(),
+  originLon: z.number().min(-180).max(180).optional(),
 });
 
 const BASE_RATE = 7;       // NLe per km
@@ -103,6 +105,15 @@ const getAuthToken = (authorization?: string | string[]) => {
 };
 
 export default async function handler(req: any, res: any) {
+  // Reject oversized payloads (> 10KB)
+  const contentLength = req.headers['content-length'];
+  if (contentLength && parseInt(contentLength, 10) > 10240) {
+    return res.status(413).json({ error: "Payload too large" });
+  }
+  if (req.body && JSON.stringify(req.body).length > 10240) {
+    return res.status(413).json({ error: "Payload too large" });
+  }
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
