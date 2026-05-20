@@ -2,12 +2,16 @@
 
 export const FREETOWN_CENTER = { lat: 8.4844, lon: -13.2344 };
 
-/** viewbox: left (min lon), top (max lat), right (max lon), bottom (min lat) */
+/**
+ * Greater Freetown area (peninsula + eastern corridor).
+ * viewbox: left (min lon), top (max lat), right (max lon), bottom (min lat)
+ * Previous right edge (-13.12) cut off eastern neighborhoods (Kissy, Wellington, Allen Town, etc.).
+ */
 export const FREETOWN_VIEWBOX = {
-  left: -13.35,
-  top: 8.55,
-  right: -13.12,
-  bottom: 8.42,
+  left: -13.40,
+  top: 8.58,
+  right: -12.92,
+  bottom: 8.35,
 };
 
 export const CAMPUS_COORDS: Record<string, { lat: number; lon: number }> = {
@@ -80,7 +84,7 @@ export async function geocodeAddress(query: string): Promise<GeoPoint & { displa
     limit: "1",
     countrycodes: "sl",
     viewbox: `${left},${top},${right},${bottom}`,
-    bounded: "1",
+    bounded: "0",
   });
 
   if (!Array.isArray(results) || results.length === 0) {
@@ -121,7 +125,7 @@ export async function searchLocations(query: string, limit = 5): Promise<Locatio
     limit: String(limit),
     countrycodes: "sl",
     viewbox: `${left},${top},${right},${bottom}`,
-    bounded: "1",
+    bounded: "0",
     addressdetails: "1",
   });
 
