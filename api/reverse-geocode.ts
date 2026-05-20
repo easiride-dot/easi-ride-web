@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit.js";
+import { reverseGeocode } from "./_osm.js";
 
 const schema = z.object({
   lat: z.number().min(-90).max(90),
@@ -14,8 +15,7 @@ const getAuthToken = (authorization?: string | string[]) => {
 };
 
 export default async function handler(req: any, res: any) {
-  // Reject oversized payloads (> 10KB)
-  const contentLength = req.headers['content-length'];
+  const contentLength = req.headers["content-length"];
   if (contentLength && parseInt(contentLength, 10) > 10240) {
     return res.status(413).json({ error: "Payload too large" });
   }
@@ -30,21 +30,15 @@ export default async function handler(req: any, res: any) {
 
   const token = getAuthToken(req.headers.authorization);
   if (!token) {
-    console.error("❌ Reverse Geocode: Missing authorization token");
     return res.status(401).json({ error: "Missing auth token" });
   }
 
-  const getEnv = (name: string) => {
-    const value = process.env[name];
-    if (!value) return "";
-    return value;
-  };
+  const getEnv = (name: string) => process.env[name] ?? "";
 
   const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
   const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ Reverse Geocode: Supabase variables undefined");
     return res.status(500).json({ error: "Supabase environment variables not configured" });
   }
 
@@ -54,11 +48,9 @@ export default async function handler(req: any, res: any) {
 
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
   if (userError || !user) {
-    console.error("❌ Reverse Geocode: Auth token verification failed!", userError?.message || userError);
     return res.status(401).json({ error: "Invalid auth token" });
   }
 
-  // Rate limiting: max 15 requests per minute
   if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 15 }, user.id)) {
     return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
@@ -69,26 +61,12 @@ export default async function handler(req: any, res: any) {
   }
 
   const { lat, lon } = parsed.data;
-  const apiKey = process.env.TOMTOM_API_KEY;
-
-  if (!apiKey) {
-    return res.status(500).json({ error: "TomTom API key not configured on server" });
-  }
 
   try {
-    const url = `https://api.tomtom.com/search/2/reverseGeocode/${lat},${lon}.json?key=${apiKey}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data && data.addresses && data.addresses.length > 0) {
-      const addressObj = data.addresses[0].address;
-      const placeName = addressObj.streetName || addressObj.municipalitySubdivision || addressObj.freeformAddress || "Freetown";
-      return res.status(200).json({ placeName });
-    } else {
-      return res.status(404).json({ error: "Location name not found" });
-    }
+    const placeName = await reverseGeocode(lat, lon);
+    return res.status(200).json({ placeName });
   } catch (error) {
     console.error("Reverse geocode error:", error);
-    return res.status(500).json({ error: "Failed to reverse geocode" });
+    return res.status(404).json({ error: "Location name not found" });
   }
 }

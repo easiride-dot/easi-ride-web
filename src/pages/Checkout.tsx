@@ -113,7 +113,7 @@ const Checkout = () => {
       }
     };
 
-    // Debounce the call if no lat/lon exists (typing mode) to prevent spamming TomTom
+    // Debounce the call if no lat/lon exists (typing mode) to limit geocoding requests
     const delay = !originLat || !originLon ? 600 : 0;
     const timer = setTimeout(fetchFare, delay);
     return () => clearTimeout(timer);

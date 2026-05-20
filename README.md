@@ -7,7 +7,8 @@ A weekly ride-subscription platform for students in Sierra Leone. Book shared or
 - **React 18** + TypeScript (Vite)
 - **TailwindCSS** + shadcn/ui
 - **Supabase** — Auth, Database, RLS
-- **Vercel Serverless** — `/api` routes (TomTom geocoding, fares, payments)
+- **Vercel Serverless** — `/api` routes (OpenStreetMap geocoding, fares, payments)
+- **OpenStreetMap** — [Nominatim](https://nominatim.org/) (search & geocoding) + [OSRM](http://project-osrm.org/) (driving distance)
 - **React Router v6**
 - **Zod** — form validation
 
@@ -38,7 +39,9 @@ src/
 ├── hooks/       # useAuth hook
 ├── integrations/# Supabase client
 └── lib/         # Utilities
-api/             # Vercel serverless functions
+api/
+├── _osm.ts      # Nominatim + OSRM helpers
+└── ...          # Vercel serverless functions
 supabase/
 └── migrations/  # Database schema
 ```
@@ -54,23 +57,33 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 
-### Server (`/api` routes — never expose to the browser)
+### Server (`/api` routes)
 
-Set these in **Vercel → Project → Settings → Environment Variables** for Production (and Preview if needed):
+Set in **Vercel → Settings → Environment Variables** (Production):
 
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
-TOMTOM_API_KEY=your-tomtom-api-key
 ```
 
-Use the same Supabase URL and anon key as the `VITE_*` values. API handlers also accept `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as fallbacks, but explicit `SUPABASE_*` names are recommended on Vercel.
+Optional OpenStreetMap overrides (defaults use public Nominatim + OSRM):
 
-After changing env vars on Vercel, **redeploy** the project.
+```
+NOMINATIM_USER_AGENT=EasiRide/1.0 (you@example.com)
+NOMINATIM_BASE_URL=https://nominatim.openstreetmap.org
+OSRM_BASE_URL=https://router.project-osrm.org
+```
+
+No API key is required for geocoding. Respect [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) (identify your app via `NOMINATIM_USER_AGENT`). For high traffic, self-host Nominatim or use a commercial OSM geocoding provider and set `NOMINATIM_BASE_URL`.
+
+You can remove `TOMTOM_API_KEY` from Vercel if it was set previously.
+
+After changing env vars, **redeploy**.
 
 ## Deploy checklist (Vercel)
 
 1. Root directory: `easi-ride` (if the repo contains multiple apps).
-2. Add `TOMTOM_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` for Production.
-3. Redeploy.
-4. Smoke test: `GET /api/search-locations?query=test` without auth should return JSON `401`, not a generic HTML 500.
+2. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` for Production.
+3. Optionally set `NOMINATIM_USER_AGENT` with a contact email.
+4. Redeploy.
+5. Smoke test: `GET /api/search-locations?query=test` without auth → JSON `401`.

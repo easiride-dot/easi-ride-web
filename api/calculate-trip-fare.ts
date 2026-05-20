@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit.js";
+import { distanceToCampusKm } from "./_osm.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -23,8 +24,7 @@ const MIN_DISTANCE_KM = 5; // threshold for minimum fare
 // ============================================================
 // PLACEHOLDER: Approximate road distances (km) from known
 // Freetown pickup areas to each campus.
-// Replace with real Google Maps Distance Matrix API call by
-// setting GOOGLE_MAPS_API_KEY in your environment variables.
+// Fallback when OSM geocoding/routing is unavailable.
 // ============================================================
 const MOCK_DISTANCES: Record<string, Record<string, number>> = {
   "lumley":       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
@@ -55,61 +55,6 @@ const getMockDistance = (origin: string, campus: string): number => {
     }
   }
   return DEFAULT_DISTANCE_KM;
-};
-
-const callTomTom = async (origin: string, campus: string, lat?: number, lon?: number): Promise<number> => {
-  const apiKey = process.env.TOMTOM_API_KEY;
-  if (!apiKey) throw new Error("TomTom API key not configured");
-
-  let originLat = lat;
-  let originLon = lon;
-
-  if (!originLat || !originLon) {
-    const originQuery = encodeURIComponent(`${origin}, Freetown, Sierra Leone`);
-    const geoUrl = `https://api.tomtom.com/search/2/geocode/${originQuery}.json?key=${apiKey}&limit=1`;
-    
-    const geoResponse = await fetch(geoUrl);
-    const geoData = await geoResponse.json();
-
-    if (!geoData.results || geoData.results.length === 0) {
-      throw new Error(`Could not find origin: ${origin}`);
-    }
-
-    originLat = geoData.results[0].position.lat;
-    originLon = geoData.results[0].position.lon;
-  }
-
-  const campusCoords: Record<string, { lat: number, lon: number }> = {
-    "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
-    "IPAM Tower Hill": { lat: 8.484611, lon: -13.230917 },
-    "Limkokwing": { lat: 8.451639, lon: -13.238417 },
-  };
-
-  const dest = campusCoords[campus];
-  if (!dest) {
-    throw new Error(`Unknown campus for routing: ${campus}`);
-  }
-
-  const destLat = dest.lat;
-  const destLon = dest.lon;
-
-  // Print coordinates to the Vercel terminal so you can verify them!
-  console.log(`📍 Pay Per Trip Booking:
-    - Origin (${origin}): Lat ${originLat}, Lon ${originLon} (${lat && lon ? 'from client' : 'geocoded via TomTom'})
-    - Campus (${campus}): Lat ${destLat}, Lon ${destLon}`);
-
-  const destLatLon = `${destLat},${destLon}`;
-  const originLatLon = `${originLat},${originLon}`;
-
-  const dirUrl = `https://api.tomtom.com/routing/1/calculateRoute/${originLatLon}:${destLatLon}/json?key=${apiKey}`;
-  const dirResponse = await fetch(dirUrl);
-  const dirData = await dirResponse.json();
-
-  if (!dirData.routes || dirData.routes.length === 0) {
-    throw new Error(`Routing failed`);
-  }
-
-  return dirData.routes[0].summary.lengthInMeters / 1000;
 };
 
 export default async function handler(req: any, res: any) {
@@ -173,7 +118,14 @@ export default async function handler(req: any, res: any) {
   let isEstimate = false;
 
   try {
-    distanceKm = await callTomTom(originAddress, campus, originLat, originLon);
+    const route = await distanceToCampusKm(originAddress, campus, originLat, originLon);
+    distanceKm = route.distanceKm;
+    console.log(`📍 Trip fare: ${originAddress} → ${campus}`, {
+      origin: route.origin,
+      campus: route.campusPoint,
+      geocoded: route.geocoded,
+      distanceKm: route.distanceKm,
+    });
   } catch (err) {
     console.error("Distance calculation error:", err);
     distanceKm = getMockDistance(originAddress, campus);
