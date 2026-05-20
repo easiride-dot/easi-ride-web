@@ -28,7 +28,10 @@ export const ProtectedRoute = ({ children }: Props) => {
           .eq("id", user.id)
           .maybeSingle();
 
-        if (error || !data) {
+        if (error) {
+          console.error("Profile check failed (network or server):", error);
+          setExists(true);
+        } else if (!data) {
           console.warn("User profile not found, signing out...");
           setExists(false);
           await signOut();
@@ -37,6 +40,7 @@ export const ProtectedRoute = ({ children }: Props) => {
         }
       } catch (err) {
         console.error("User verification failed:", err);
+        setExists(true);
       } finally {
         setVerifying(false);
       }

@@ -3,16 +3,19 @@
 export const FREETOWN_CENTER = { lat: 8.4844, lon: -13.2344 };
 
 /**
- * Greater Freetown area (peninsula + eastern corridor).
+ * Greater Freetown service area.
  * viewbox: left (min lon), top (max lat), right (max lon), bottom (min lat)
- * Previous right edge (-13.12) cut off eastern neighborhoods (Kissy, Wellington, Allen Town, etc.).
+ * Eastern edge: 8°25'48.5"N 13°09'16.2"W → lon -13.1545 (decimal)
  */
 export const FREETOWN_VIEWBOX = {
   left: -13.40,
   top: 8.58,
-  right: -12.92,
+  right: -13.1545,
   bottom: 8.35,
 };
+
+/** Eastern boundary anchor (8°25'48.5"N 13°09'16.2"W) — for reference / maps */
+export const FREETOWN_EAST_EDGE = { lat: 8.430139, lon: -13.1545 };
 
 export const CAMPUS_COORDS: Record<string, { lat: number; lon: number }> = {
   "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
