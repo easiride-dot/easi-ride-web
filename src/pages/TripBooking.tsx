@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { ShieldAlert } from "lucide-react";
 import { parseApiJson } from "@/lib/parseApiResponse";
-import { MapDisplay } from "@/components/MapDisplay";
+// import { MapDisplay } from "@/components/MapDisplay"; // Map removed
 
 const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
@@ -50,6 +50,7 @@ const TripBooking = () => {
   const [booking, setBooking] = useState(false);
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [pickupDetails, setPickupDetails] = useState("");
+// const [showMap, setShowMap] = useState(false); // Map overlay removed
 
   const isVerified = profile?.verification_status === "approved";
 
@@ -379,21 +380,6 @@ const TripBooking = () => {
                 </div>
               </div>
             </div>
-
-            <MapDisplay
-              pickupLat={originLat}
-              pickupLon={originLon}
-              campusLat={CAMPUS_COORDS[campus]?.lat}
-              campusLon={CAMPUS_COORDS[campus]?.lon}
-              campusName={campus}
-              onPickupSelect={(address, lat, lon) => {
-                setPickup(address);
-                setOriginLat(lat);
-                setOriginLon(lon);
-                setFare(null);
-              }}
-              isDraggable={true}
-            />
 
             {/* Time selection */}
             <div className="space-y-2">
