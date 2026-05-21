@@ -116,10 +116,14 @@ export default async function handler(req: any, res: any) {
 
   let distanceKm = 0;
   let isEstimate = false;
+  let originCoords: { lat: number; lon: number } | undefined = undefined;
+  let campusCoords: { lat: number; lon: number } | undefined = undefined;
 
   try {
     const route = await distanceToCampusKm(originAddress, campus, originLat, originLon);
     distanceKm = route.distanceKm;
+    originCoords = route.origin;
+    campusCoords = route.campusPoint;
     console.log(`📍 Trip fare: ${originAddress} → ${campus}`, {
       origin: route.origin,
       campus: route.campusPoint,
@@ -130,6 +134,15 @@ export default async function handler(req: any, res: any) {
     console.error("Distance calculation error:", err);
     distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
+    if (originLat !== undefined && originLon !== undefined) {
+      originCoords = { lat: originLat, lon: originLon };
+    }
+    try {
+      const { getCampusCoords } = await import("./_osm.js");
+      campusCoords = getCampusCoords(campus);
+    } catch {
+      // ignore
+    }
   }
 
   const fareAmount = distanceKm < MIN_DISTANCE_KM
@@ -140,6 +153,8 @@ export default async function handler(req: any, res: any) {
     distanceKm: Number(distanceKm.toFixed(1)),
     fareAmount,
     isEstimate,
-    minimumApplied: distanceKm < MIN_DISTANCE_KM
+    minimumApplied: distanceKm < MIN_DISTANCE_KM,
+    originCoords,
+    campusCoords
   });
 }

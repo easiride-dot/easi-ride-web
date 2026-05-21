@@ -15,14 +15,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { ShieldAlert } from "lucide-react";
 import { parseApiJson } from "@/lib/parseApiResponse";
+import { MapDisplay } from "@/components/MapDisplay";
 
 const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
+
+const CAMPUS_COORDS: Record<string, { lat: number; lon: number }> = {
+  "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
+  "IPAM Tower Hill": { lat: 8.484611, lon: -13.230917 },
+  "Limkokwing": { lat: 8.451639, lon: -13.238417 },
+};
 
 interface FareResult {
   distanceKm: number;
   fareAmount: number;
   isEstimate: boolean;
   minimumApplied: boolean;
+  originCoords?: { lat: number; lon: number };
+  campusCoords?: { lat: number; lon: number };
 }
 
 const TripBooking = () => {
@@ -120,6 +129,10 @@ const TripBooking = () => {
         return;
       }
       setFare(result as FareResult);
+      if (result.originCoords) {
+        setOriginLat(result.originCoords.lat);
+        setOriginLon(result.originCoords.lon);
+      }
     } catch {
       toast.error("Could not reach the server. Please check your connection.");
     } finally {
@@ -366,6 +379,21 @@ const TripBooking = () => {
                 </div>
               </div>
             </div>
+
+            <MapDisplay
+              pickupLat={originLat}
+              pickupLon={originLon}
+              campusLat={CAMPUS_COORDS[campus]?.lat}
+              campusLon={CAMPUS_COORDS[campus]?.lon}
+              campusName={campus}
+              onPickupSelect={(address, lat, lon) => {
+                setPickup(address);
+                setOriginLat(lat);
+                setOriginLon(lon);
+                setFare(null);
+              }}
+              isDraggable={true}
+            />
 
             {/* Time selection */}
             <div className="space-y-2">
