@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { rateLimit } from "./_rate-limit.js";
-import { searchLocations } from "./_osm.js";
+import { rateLimit } from "./_rate-limit.ts";
+import { searchLocations } from "./_osm.ts";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 

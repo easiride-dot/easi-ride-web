@@ -1,7 +1,10 @@
 import express from "express";
+import { loadEnv } from "vite";
 
 const app = express();
 app.use(express.json());
+
+Object.assign(process.env, loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), ""));
 
 const { default: reverseGeocode } = await import("../api/reverse-geocode.ts");
 const { default: calculateTripFare } = await import("../api/calculate-trip-fare.ts");

@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { rateLimit } from "./_rate-limit.js";
-import { reverseGeocode } from "./_osm.js";
+import { rateLimit } from "./_rate-limit.ts";
+import { reverseGeocode } from "./_osm.ts";
 
 const schema = z.object({
   lat: z.number().min(-90).max(90),
