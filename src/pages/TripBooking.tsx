@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   MapPin, Navigation, Clock, ArrowRight, Locate, ArrowLeft,
-  Loader2, AlertCircle, CreditCard, Info,
+  Loader2, Info, User, Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,7 @@ const TripBooking = () => {
   const [booking, setBooking] = useState(false);
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [pickupDetails, setPickupDetails] = useState("");
+  const [rideType, setRideType] = useState<"solo" | "shared">("solo");
 // const [showMap, setShowMap] = useState(false); // Map overlay removed
 
   const isVerified = profile?.verification_status === "approved";
@@ -121,7 +122,9 @@ const TripBooking = () => {
           originAddress: pickup.trim(), 
           campus,
           originLat,
-          originLon
+          originLon,
+          rideType,
+          passengerCount: rideType === "shared" ? 2 : 1,
         }),
       });
       const result = await response.json().catch(() => null);
@@ -158,21 +161,16 @@ const TripBooking = () => {
         ? `${pickup.trim()} (${pickupDetails.trim()})`
         : pickup.trim();
 
-      const { data, error } = await supabase
-        .from("rides")
-        .insert({
-          user_id: user.id,
-          pickup: isReturnTrip ? campus : customLocation,
-          destination: isReturnTrip ? customLocation : campus,
-          time_slot: timeSlot,
-          type: "solo", // single trip is solo
-          price: fare.fareAmount,
-          payment_type: "trip",
-          payment_status: "pending",
-          status: "pool_locked_awaiting_driver" as any
-        })
-        .select("id")
-        .single();
+      const { data, error } = await (supabase as any)
+        .rpc("create_trip_booking", {
+          p_pickup: isReturnTrip ? campus : customLocation,
+          p_destination: isReturnTrip ? customLocation : campus,
+          p_time_slot: timeSlot,
+          p_price: fare.fareAmount,
+          p_type: rideType,
+          p_distance_km: fare.distanceKm,
+          p_fare_amount: fare.fareAmount,
+        });
 
       if (error) {
         toast.error(error.message);
@@ -397,6 +395,42 @@ const TripBooking = () => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">Ride type</div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setRideType("solo"); setFare(null); }}
+                  className={`flex min-h-20 items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                    rideType === "solo" ? "border-foreground bg-foreground text-background" : "border-hairline bg-secondary/20"
+                  }`}
+                >
+                  <User className="h-5 w-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-semibold">Solo</div>
+                    <div className={`text-xs ${rideType === "solo" ? "text-background/70" : "text-muted-foreground"}`}>
+                      Private fare
+                    </div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setRideType("shared"); setFare(null); }}
+                  className={`flex min-h-20 items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                    rideType === "shared" ? "border-foreground bg-foreground text-background" : "border-hairline bg-secondary/20"
+                  }`}
+                >
+                  <Users className="h-5 w-5 shrink-0" />
+                  <div>
+                    <div className="text-sm font-semibold">Shared</div>
+                    <div className={`text-xs ${rideType === "shared" ? "text-background/70" : "text-muted-foreground"}`}>
+                      Two-seat pool
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Calculate button */}
             {!fare && (
               <Button
@@ -440,10 +474,16 @@ const TripBooking = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
-                      Fare
+                      {rideType === "shared" ? "Pool fare" : "Fare"}
                     </span>
                     <span className="font-display text-2xl font-semibold">{fare.fareAmount} NLe</span>
                   </div>
+                  {rideType === "shared" && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Estimated per seat</span>
+                      <span className="font-medium">{Math.round(fare.fareAmount / 2)} NLe</span>
+                    </div>
+                  )}
 
                   {fare.isEstimate && (
                     <div className="flex items-start gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
@@ -464,9 +504,14 @@ const TripBooking = () => {
                     {booking ? (
                       <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Booking your ride...</>
                     ) : (
-                      <><ArrowRight className="h-5 w-5 mr-2" /> Book Ride for {fare.fareAmount} NLe</>
+                      <><ArrowRight className="h-5 w-5 mr-2" /> {rideType === "shared" ? "Create Shared Ride" : `Book Ride for ${fare.fareAmount} NLe`}</>
                     )}
                   </Button>
+                  {rideType === "shared" && (
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
+                      You will get an invite link before driver matching starts.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

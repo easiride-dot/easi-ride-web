@@ -69,11 +69,10 @@ const ClaimSeat = () => {
 
     setClaiming(true);
     try {
-      const { error: updateError } = await supabase
-        .from("rides")
-        .update({ status: "pool_locked_awaiting_driver" })
-        .eq("id", ride.id)
-        .eq("status", "pending_friend_commitment"); // optimistic concurrency guard
+      const { error: updateError } = await (supabase as any)
+        .rpc("claim_shared_ride_seat", {
+          p_ride_id: ride.id,
+        });
 
       if (updateError) {
         toast.error("Could not claim your seat. The pool may have already been locked.");

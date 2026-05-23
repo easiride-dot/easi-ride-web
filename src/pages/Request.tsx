@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Navigation, Clock, Users, User, ArrowRight, Locate, LucideIcon, ShieldAlert } from "lucide-react";
+import { MapPin, Navigation, Clock, Users, User, ArrowRight, Locate, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,7 @@ const Request = () => {
   const [timeSlot, setTimeSlot] = useState("08:00");
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [pickupDetails, setPickupDetails] = useState("");
-  const rideType = "solo";
+  const [rideType, setRideType] = useState<RideType>("solo");
 
   const detect = () => {
     setPickup("Wilkinson Road, near junction");
@@ -266,13 +266,52 @@ const Request = () => {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <div className="text-sm text-muted-foreground">Ride type</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setRideType("solo")}
+              className={`flex min-h-20 items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                rideType === "solo" ? "border-foreground bg-foreground text-background" : "border-hairline bg-secondary/20"
+              }`}
+            >
+              <User className="h-5 w-5 shrink-0" />
+              <div>
+                <div className="text-sm font-semibold">Solo</div>
+                <div className={`text-xs ${rideType === "solo" ? "text-background/70" : "text-muted-foreground"}`}>
+                  Match with a driver now
+                </div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRideType("shared")}
+              className={`flex min-h-20 items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                rideType === "shared" ? "border-foreground bg-foreground text-background" : "border-hairline bg-secondary/20"
+              }`}
+            >
+              <Users className="h-5 w-5 shrink-0" />
+              <div>
+                <div className="text-sm font-semibold">Shared</div>
+                <div className={`text-xs ${rideType === "shared" ? "text-background/70" : "text-muted-foreground"}`}>
+                  Invite a friend first
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* Summary */}
         <div className="glass-card flex items-center justify-between rounded-2xl p-4">
           <div>
             <p className="text-xs text-muted-foreground">Payment</p>
             <p className="font-display text-lg font-medium capitalize text-foreground/90">
-              Covered by your weekly plan
+              {rideType === "shared" ? "Shared ride from weekly plan" : "Covered by your weekly plan"}
             </p>
+            {rideType === "shared" && (
+              <p className="mt-1 text-xs text-muted-foreground">Your ride will wait for a seat claim before driver matching.</p>
+            )}
           </div>
           <Button type="submit" variant="hero" size="lg" disabled={submitting}>
             {submitting ? "Booking…" : (<>Confirm booking <ArrowRight className="h-4 w-4" /></>)}

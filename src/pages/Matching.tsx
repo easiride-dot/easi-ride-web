@@ -64,7 +64,7 @@ const Matching = () => {
   return (
     <div className="space-y-6 animate-fade-up">
       {(waitingForSeat || waitingForDriver) && (
-        <div className="flex min-h-[70vh] flex-col items-center justify-center text-center">
+        <div className={`flex flex-col items-center justify-center text-center ${waitingForSeat ? "min-h-[38vh]" : "min-h-[70vh]"}`}>
           <div className="relative flex h-24 w-24 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
             <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
@@ -129,8 +129,10 @@ const Matching = () => {
           <div className="flex items-center gap-3">
             <Users className="h-5 w-5 text-primary" />
             <div>
-              <div className="font-semibold text-sm">Invite friends</div>
-              <div className="text-xs text-muted-foreground">Share the ride fare</div>
+              <div className="font-semibold text-sm">{waitingForSeat ? "Send invite link" : "Invite friends"}</div>
+              <div className="text-xs text-muted-foreground">
+                {waitingForSeat ? "Driver matching starts after your friend claims a seat" : "Share the ride fare"}
+              </div>
             </div>
           </div>
           <Button
