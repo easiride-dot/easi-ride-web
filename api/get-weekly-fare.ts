@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit.js";
 import { distanceToCampusKm } from "./_osm.js";
+import { calculatePricing } from "./calculate-trip-fare.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -129,9 +130,7 @@ export default async function handler(req: any, res: any) {
     isEstimate = true;
   }
 
-  const singleFare = distanceKm < MIN_DISTANCE_KM
-    ? MIN_FARE
-    : Math.round(BASE_RATE * distanceKm);
+  const singleFare = calculatePricing(distanceKm, "solo", 1).gross;
 
   // Weekly plan = Single trip fare × 6
   const weeklyPrice = singleFare * 6;

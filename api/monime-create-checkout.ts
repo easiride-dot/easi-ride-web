@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit.js";
 import { distanceToCampusKm } from "./_osm.js";
+import { calculatePricing } from "./calculate-trip-fare.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -20,6 +21,10 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
     originLat: z.number().min(-90).max(90).optional(),
     originLon: z.number().min(-180).max(180).optional(),
     rideId: z.string().uuid().optional(),
+    ride_type: z.enum(["solo", "shared"]).optional(),
+    rideType: z.enum(["solo", "shared"]).optional(),
+    passenger_count: z.number().int().min(1).optional(),
+    passengerCount: z.number().int().min(1).optional(),
   }),
 ]);
 
@@ -47,7 +52,7 @@ const getMockDistance = (origin: string, campus: string) => {
   return DEFAULT_KM;
 };
 
-const getTripFare = async (originAddress: string, campus: string, lat?: number, lon?: number): Promise<number> => {
+const getTripFare = async (originAddress: string, campus: string, rideType: "solo" | "shared", passengerCount: number, lat?: number, lon?: number): Promise<number> => {
   let distanceKm: number;
 
   try {
@@ -63,9 +68,7 @@ const getTripFare = async (originAddress: string, campus: string, lat?: number, 
     distanceKm = getMockDistance(originAddress, campus);
   }
 
-  return distanceKm < TRIP_MIN_DISTANCE_KM
-    ? TRIP_MIN_FARE
-    : Math.round(TRIP_BASE_RATE * distanceKm);
+  return calculatePricing(distanceKm, rideType, passengerCount).gross;
 };
 
 const getEnv = (name: string) => {
@@ -76,7 +79,14 @@ const getEnv = (name: string) => {
 
 class SetupError extends Error { status = 500; }
 class AppError extends Error {
-  constructor(message: string, public status = 500, public code?: string) { super(message); }
+  status: number;
+  code?: string;
+
+  constructor(message: string, status = 500, code?: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
 }
 
 const getAuthToken = (authorization?: string | string[]) => {
@@ -129,6 +139,8 @@ export default async function handler(req: any, res: any) {
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
@@ -169,7 +181,7 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: "You already have an active subscription" });
       }
       // Server-side price calculation — client cannot manipulate this
-      const singleFare = await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
+      const singleFare = await getTripFare(payload.originAddress, payload.campus, "solo", 1, payload.originLat, payload.originLon);
       amount = singleFare * WEEKLY_MULTIPLIER;
       pickupArea = payload.originAddress;
       campus = payload.campus;
@@ -178,17 +190,20 @@ export default async function handler(req: any, res: any) {
     } else {
       // Pay per trip
       let dbPrice: number | null = null;
+      let rideType: "solo" | "shared" = payload.rideType || payload.ride_type || "solo";
+      let passengerCount = payload.passengerCount || payload.passenger_count || 1;
       if (payload.rideId) {
         const { data: ride } = await supabase
           .from("rides")
-          .select("price")
+          .select("price, type")
           .eq("id", payload.rideId)
           .maybeSingle();
         if (ride) {
           dbPrice = ride.price;
+          rideType = ride.type || "solo";
         }
       }
-      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, payload.originLat, payload.originLon);
+      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, rideType, passengerCount, payload.originLat, payload.originLon);
       campus = payload.campus;
       planTitle = "Easi Ride — Pay Per Trip";
       planDescription = `Single trip from ${payload.originAddress} to ${payload.campus}`;
@@ -197,7 +212,7 @@ export default async function handler(req: any, res: any) {
     const orderId = `er_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const appUrl = getAppUrl(req);
 
-    const { error: attemptError } = await supabase.from("payment_attempts").insert({
+    const { error: attemptError } = await supabaseAdmin.from("payment_attempts").insert({
       user_id: user.id,
       plan_type: payload.paymentType === "weekly" ? "solo" : "trip",
       amount,
@@ -256,7 +271,7 @@ export default async function handler(req: any, res: any) {
     const monimeData = await monimeResponse.json().catch(() => null);
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
-      await supabase.from("payment_attempts")
+      await supabaseAdmin.from("payment_attempts")
         .update({ status: "failed", monime_status: monimeData?.result?.status ?? null })
         .eq("order_id", orderId);
 
@@ -267,7 +282,7 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    await supabase.from("payment_attempts")
+    await supabaseAdmin.from("payment_attempts")
       .update({
         monime_session_id: monimeData.result.id,
         monime_order_number: monimeData.result.orderNumber ?? null,

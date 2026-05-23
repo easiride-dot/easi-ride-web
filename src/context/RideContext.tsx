@@ -2,8 +2,12 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useState 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-export type RideType = "solo" | "trip";
-export type RideStatus = "pending" | "assigned" | "completed";
+export type RideType = "solo" | "shared";
+export type RideStatus =
+  | "pending_friend_commitment"
+  | "pool_locked_awaiting_driver"
+  | "driver_assigned"
+  | "paid_and_dispatched";
 
 export interface Ride {
   id: string;
@@ -44,7 +48,7 @@ type RideRow = {
   time_slot: string;
   type: RideType;
   price: number;
-  status: RideStatus;
+  status: string; // use string to safely handle enum values from DB
   driver_name: string | null;
   driver_phone: string | null;
   vehicle: string | null;
@@ -64,7 +68,7 @@ const mapRow = (r: RideRow): Ride => ({
   timeSlot: r.time_slot,
   type: r.type,
   price: r.price,
-  status: r.status,
+  status: r.status as RideStatus,
   driverName: r.driver_name ?? undefined,
   driverPhone: r.driver_phone ?? undefined,
   vehicle: r.vehicle ?? undefined,
@@ -145,7 +149,7 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
     const { data: row, error } = await supabase
       .from("rides")
       .update({
-        status: "assigned",
+        status: "driver_assigned",
         driver_name: driver.name,
         driver_phone: driver.phone,
         vehicle: driver.vehicle,

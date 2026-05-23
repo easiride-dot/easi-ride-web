@@ -29,7 +29,7 @@ interface FareResult {
   distanceKm: number;
   fareAmount: number;
   isEstimate: boolean;
-  minimumApplied: boolean;
+  minimumApplied?: boolean;
   originCoords?: { lat: number; lon: number };
   campusCoords?: { lat: number; lon: number };
 }
@@ -169,7 +169,7 @@ const TripBooking = () => {
           price: fare.fareAmount,
           payment_type: "trip",
           payment_status: "pending",
-          status: "pending"
+          status: "pool_locked_awaiting_driver" as any
         })
         .select("id")
         .single();
@@ -440,7 +440,7 @@ const TripBooking = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
-                      {fare.minimumApplied ? "Minimum fare" : "Fare"}
+                      Fare
                     </span>
                     <span className="font-display text-2xl font-semibold">{fare.fareAmount} NLe</span>
                   </div>
@@ -473,7 +473,7 @@ const TripBooking = () => {
 
             {!fare && (
               <p className="text-center text-xs text-muted-foreground">
-                7 NLe per km · Minimum 25 NLe · Powered by Monime
+                Fixed campus pricing - powered by Monime
               </p>
             )}
           </div>

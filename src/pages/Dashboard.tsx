@@ -8,24 +8,26 @@ import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIc
 import { formatRelative } from "@/lib/utils";
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-secondary text-muted-foreground",
-  assigned: "bg-foreground text-background",
-  completed: "bg-secondary text-muted-foreground",
+  pending_friend_commitment: "bg-amber-500/10 text-amber-200",
+  pool_locked_awaiting_driver: "bg-secondary text-muted-foreground",
+  driver_assigned: "bg-foreground text-background",
+  paid_and_dispatched: "bg-emerald-500/10 text-emerald-300",
 };
 
 const statusLabel: Record<string, string> = {
-  pending: "Finding driver",
-  assigned: "Confirmed",
-  completed: "Completed",
+  pending_friend_commitment: "Waiting for seat",
+  pool_locked_awaiting_driver: "Finding driver",
+  driver_assigned: "Driver assigned",
+  paid_and_dispatched: "Dispatched",
 };
 
 const Dashboard = () => {
   const { rides } = useRides();
   const { subscription } = useSubscription();
   const { profile } = useProfile();
-  const upcomingSub = rides.filter((r) => r.status !== "completed" && r.paymentType === "subscription");
-  const upcomingTrip = rides.filter((r) => r.status !== "completed" && r.paymentType === "trip");
-  const past = rides.filter((r) => r.status === "completed");
+  const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
+  const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
+  const past = rides.filter((r) => r.status === "paid_and_dispatched");
 
   const daysLeft = subscription
     ? Math.max(0, differenceInDays(new Date(subscription.end_date), new Date()))
@@ -189,7 +191,7 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
   const wa = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
   
   const handleCardClick = () => {
-    if (ride.status !== "completed") {
+    if (ride.status !== "paid_and_dispatched") {
       navigate(`/matching/${ride.id}`);
     }
   };
@@ -197,11 +199,11 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
   return (
     <div
       onClick={handleCardClick}
-      className={`glass-card group block rounded-2xl p-5 transition ${ride.status !== "completed" ? "cursor-pointer hover:shadow-elevated" : ""}`}
+      className={`glass-card group block rounded-2xl p-5 transition ${ride.status !== "paid_and_dispatched" ? "cursor-pointer hover:shadow-elevated" : ""}`}
     >
       <div className="flex items-center justify-between">
-        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${statusStyles[ride.status]}`}>
-          {statusLabel[ride.status]}
+        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${statusStyles[ride.status] ?? "bg-secondary text-muted-foreground"}`}>
+          {statusLabel[ride.status] ?? ride.status.replace(/_/g, " ")}
         </span>
         <span className="text-xs text-muted-foreground">{formatRelative(ride.createdAt)}</span>
       </div>
@@ -221,7 +223,7 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
           <span className="text-muted-foreground">•</span>
           <span className="capitalize">{ride.type}</span>
         </div>
-        {ride.status === "assigned" && (
+        {ride.status === "driver_assigned" && (
           <a
             href={`https://wa.me/${wa}`}
             target="_blank"

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"ts-node src/server.ts\"",
+    "dev": "concurrently \"vite\" \"ts-node --esm src/server.ts\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

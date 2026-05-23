@@ -10,6 +10,10 @@ const schema = z.object({
   campus: z.string().min(1).max(100).transform(sanitize),
   originLat: z.number().min(-90).max(90).optional(),
   originLon: z.number().min(-180).max(180).optional(),
+  ride_type: z.enum(["solo", "shared"]).optional(),
+  rideType: z.enum(["solo", "shared"]).optional(),
+  passenger_count: z.number().int().min(1).optional(),
+  passengerCount: z.number().int().min(1).optional(),
 });
 
 const getAuthToken = (authorization?: string | string[]) => {
@@ -17,9 +21,46 @@ const getAuthToken = (authorization?: string | string[]) => {
   return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 };
 
-const BASE_RATE = 7;       // NLe per km
-const MIN_FARE = 25;       // NLe — applied for trips under 5km
-const MIN_DISTANCE_KM = 5; // threshold for minimum fare
+// Pricing engine function helper
+export function calculatePricing(distanceKm: number, rideType: "solo" | "shared", passengerCount: number) {
+  let gross = 0;
+  let commission = 0;
+  let driverNet = 0;
+
+  if (distanceKm < 5.0) {
+    if (rideType === "solo") {
+      gross = 25.0;
+      commission = 5.0;
+      driverNet = 20.0;
+    } else {
+      gross = 15.0 * passengerCount;
+      commission = 3.0 * passengerCount;
+      driverNet = gross - commission;
+    }
+  } else if (distanceKm < 10.0) {
+    if (rideType === "solo") {
+      gross = 55.0;
+      commission = 11.0;
+      driverNet = 44.0;
+    } else {
+      gross = 25.0 * passengerCount;
+      commission = 5.0 * passengerCount;
+      driverNet = gross - commission;
+    }
+  } else {
+    if (rideType === "solo") {
+      gross = 85.0;
+      commission = 8.5;
+      driverNet = 76.5;
+    } else {
+      gross = 45.0 * passengerCount;
+      commission = 9.0 * passengerCount;
+      driverNet = gross - commission;
+    }
+  }
+
+  return { gross, commission, driverNet };
+}
 
 // ============================================================
 // PLACEHOLDER: Approximate road distances (km) from known
@@ -43,12 +84,10 @@ const DEFAULT_DISTANCE_KM = 9; // fallback for unknown pickup areas
 
 const getMockDistance = (origin: string, campus: string): number => {
   const key = origin.toLowerCase().trim();
-  // Try exact match first, then partial match
   const exactMatch = MOCK_DISTANCES[key];
   if (exactMatch && exactMatch[campus] !== undefined) {
     return exactMatch[campus];
   }
-  // Try partial match (e.g. "Lumley Junction" → matches "lumley")
   for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
     if (key.includes(area) && campuses[campus] !== undefined) {
       return campuses[campus];
@@ -113,6 +152,8 @@ export default async function handler(req: any, res: any) {
   }
 
   const { originAddress, campus, originLat, originLon } = parsed.data;
+  const rideType = parsed.data.rideType || parsed.data.ride_type || "solo";
+  const passengerCount = parsed.data.passengerCount || parsed.data.passenger_count || 1;
 
   let distanceKm = 0;
   let isEstimate = false;
@@ -145,16 +186,17 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  const fareAmount = distanceKm < MIN_DISTANCE_KM
-    ? MIN_FARE
-    : Math.round(BASE_RATE * distanceKm);
+  const pricing = calculatePricing(distanceKm, rideType, passengerCount);
 
   return res.status(200).json({
     distanceKm: Number(distanceKm.toFixed(1)),
-    fareAmount,
+    fareAmount: pricing.gross,
+    commission: pricing.commission,
+    driverNet: pricing.driverNet,
     isEstimate,
-    minimumApplied: distanceKm < MIN_DISTANCE_KM,
     originCoords,
-    campusCoords
+    campusCoords,
+    rideType,
+    passengerCount,
   });
 }
