@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { rateLimit } from "./_rate-limit.ts";
-import { distanceToCampusKm } from "./_osm.ts";
-import { calculatePricing } from "./calculate-trip-fare.ts";
+import { rateLimit } from "./_rate-limit.js";
+import { distanceToCampusKm } from "./_osm.js";
+import { calculatePricing } from "./calculate-trip-fare.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 

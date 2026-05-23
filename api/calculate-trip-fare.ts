@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { rateLimit } from "./_rate-limit.ts";
-import { distanceToCampusKm } from "./_osm.ts";
+import { rateLimit } from "./_rate-limit.js";
+import { distanceToCampusKm } from "./_osm.js";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -179,7 +179,7 @@ export default async function handler(req: any, res: any) {
       originCoords = { lat: originLat, lon: originLon };
     }
     try {
-      const { getCampusCoords } = await import("./_osm.ts");
+      const { getCampusCoords } = await import("./_osm.js");
       campusCoords = getCampusCoords(campus);
     } catch {
       // ignore

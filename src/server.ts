@@ -1,30 +1,33 @@
 import express from "express";
-import { loadEnv } from "vite";
+import { createServer, loadEnv } from "vite";
+
+type ApiHandler = (req: express.Request, res: express.Response) => Promise<unknown> | unknown;
+
+Object.assign(process.env, loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), ""));
+
+const vite = await createServer({
+  appType: "custom",
+  logLevel: "error",
+  server: { middlewareMode: true },
+});
+
+const loadHandler = async (path: string): Promise<ApiHandler> => {
+  const mod = await vite.ssrLoadModule(path);
+  return mod.default as ApiHandler;
+};
 
 const app = express();
 app.use(express.json());
 
-Object.assign(process.env, loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), ""));
-
-const { default: reverseGeocode } = await import("../api/reverse-geocode.ts");
-const { default: calculateTripFare } = await import("../api/calculate-trip-fare.ts");
-const { default: searchLocations } = await import("../api/search-locations.ts");
-const { default: monimeCreateCheckout } = await import("../api/monime-create-checkout.ts");
-const { default: monimeVerifyCheckout } = await import("../api/monime-verify-checkout.ts");
-const { default: monimeCheckoutSuccess } = await import("../api/monime-checkout-success.ts");
-const { default: monimeCheckoutCancel } = await import("../api/monime-checkout-cancel.ts");
-const { default: monimeStkPush } = await import("../api/monime-stk-push.ts");
-const { default: monimeWebhook } = await import("../api/monime-webhook.ts");
-
-app.post("/api/reverse-geocode", reverseGeocode);
-app.post("/api/calculate-trip-fare", calculateTripFare);
-app.get("/api/search-locations", searchLocations);
-app.post("/api/monime-create-checkout", monimeCreateCheckout);
-app.post("/api/monime-verify-checkout", monimeVerifyCheckout);
-app.all("/api/monime-checkout-success", monimeCheckoutSuccess);
-app.all("/api/monime-checkout-cancel", monimeCheckoutCancel);
-app.post("/api/monime-stk-push", monimeStkPush);
-app.post("/api/monime-webhook", monimeWebhook);
+app.post("/api/reverse-geocode", await loadHandler("/api/reverse-geocode.ts"));
+app.post("/api/calculate-trip-fare", await loadHandler("/api/calculate-trip-fare.ts"));
+app.get("/api/search-locations", await loadHandler("/api/search-locations.ts"));
+app.post("/api/monime-create-checkout", await loadHandler("/api/monime-create-checkout.ts"));
+app.post("/api/monime-verify-checkout", await loadHandler("/api/monime-verify-checkout.ts"));
+app.all("/api/monime-checkout-success", await loadHandler("/api/monime-checkout-success.ts"));
+app.all("/api/monime-checkout-cancel", await loadHandler("/api/monime-checkout-cancel.ts"));
+app.post("/api/monime-stk-push", await loadHandler("/api/monime-stk-push.ts"));
+app.post("/api/monime-webhook", await loadHandler("/api/monime-webhook.ts"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
