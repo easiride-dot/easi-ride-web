@@ -294,7 +294,11 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "student"
-      ride_status: "pending" | "assigned" | "completed"
+      ride_status:
+        | "pending_friend_commitment"
+        | "pool_locked_awaiting_driver"
+        | "driver_assigned"
+        | "paid_and_dispatched"
       ride_type: "shared" | "solo"
     }
     CompositeTypes: {
@@ -424,7 +428,12 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "student"],
-      ride_status: ["pending", "assigned", "completed"],
+      ride_status: [
+        "pending_friend_commitment",
+        "pool_locked_awaiting_driver",
+        "driver_assigned",
+        "paid_and_dispatched",
+      ],
       ride_type: ["shared", "solo"],
     },
   },

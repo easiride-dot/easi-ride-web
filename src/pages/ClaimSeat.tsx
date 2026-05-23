@@ -75,7 +75,8 @@ const ClaimSeat = () => {
         });
 
       if (updateError) {
-        toast.error("Could not claim your seat. The pool may have already been locked.");
+        console.error("RPC Error:", updateError);
+        toast.error(`Could not claim your seat: ${updateError.message || "The pool may have already been locked."}`);
         return;
       }
 
