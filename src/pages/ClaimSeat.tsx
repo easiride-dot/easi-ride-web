@@ -67,6 +67,9 @@ const ClaimSeat = () => {
     }
     if (!ride) return;
 
+    console.log("Claiming seat for ride:", ride);
+    console.log("Current user:", user.id);
+
     setClaiming(true);
     try {
       const { error: updateError } = await (supabase as any)
