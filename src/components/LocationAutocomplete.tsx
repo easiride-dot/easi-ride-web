@@ -51,16 +51,11 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
 
-        console.log("Searching locations with query:", value, "Auth token:", !!token);
-
         const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
-        console.log("Search response status:", res.status);
-
         const { ok, data, error } = await parseApiJson<{ suggestions?: LocationSuggestion[]; error?: string }>(res);
-        console.log("Search response:", { ok, data, error });
 
         if (!ok) {
           if (error) console.error("Location search failed:", error);

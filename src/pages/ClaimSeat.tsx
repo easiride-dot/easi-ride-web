@@ -45,16 +45,12 @@ const ClaimSeat = () => {
 
     const fetchRide = async () => {
       setLoadingRide(true);
-      console.log("Fetching ride with ID:", id);
-      console.log("User authenticated:", !!user);
 
       const { data, error: fetchError } = await supabase
         .from("rides")
         .select("id, pickup, destination, time_slot, type, status, created_at, user_id, payment_type, price, fare_amount, seats_claimed, profiles(full_name)")
         .eq("id", id)
         .maybeSingle();
-
-      console.log("Fetch result:", { data, fetchError });
 
       if (fetchError || !data) {
         console.error("Failed to fetch ride:", fetchError);
@@ -77,10 +73,6 @@ const ClaimSeat = () => {
       return;
     }
     if (!ride) return;
-
-    console.log("Claiming seat for ride:", ride);
-    console.log("Current user:", user.id);
-    console.log("Ride owner:", ride.user_id);
 
     // Prevent users from claiming their own rides
     if (ride.user_id === user.id) {
