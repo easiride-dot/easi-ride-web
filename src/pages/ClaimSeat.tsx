@@ -15,9 +15,10 @@ interface PoolRide {
   type: string;
   status: string;
   created_at: string;
+  user_id: string;
   profiles: {
     full_name: string | null;
-  } | null;
+  } | null | any;
 }
 
 const ClaimSeat = () => {
@@ -42,7 +43,7 @@ const ClaimSeat = () => {
       setLoadingRide(true);
       const { data, error: fetchError } = await supabase
         .from("rides")
-        .select("id, pickup, destination, time_slot, type, status, created_at, profiles(full_name)")
+        .select("id, pickup, destination, time_slot, type, status, created_at, user_id, profiles(full_name)")
         .eq("id", id)
         .maybeSingle();
 
@@ -69,6 +70,13 @@ const ClaimSeat = () => {
 
     console.log("Claiming seat for ride:", ride);
     console.log("Current user:", user.id);
+    console.log("Ride owner:", ride.user_id);
+
+    // Prevent users from claiming their own rides
+    if (ride.user_id === user.id) {
+      toast.error("You cannot claim your own ride. This link is meant for friends to join your shared ride.");
+      return;
+    }
 
     setClaiming(true);
     try {
