@@ -134,8 +134,14 @@ export default async function handler(req: any, res: any) {
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message });
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const getEnv = (name: string) => {
+      const value = process.env[name];
+      if (!value) return "";
+      return value;
+    };
+
+    const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });

@@ -85,8 +85,8 @@ export default async function handler(req: any, res: any) {
     return value;
   };
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
 
   if (!supabaseUrl || !supabaseKey) {
     console.error("❌ Weekly Subscription Price: Supabase client variables are undefined!", { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey });
