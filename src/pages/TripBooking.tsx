@@ -504,7 +504,7 @@ const TripBooking = () => {
                   {rideType === "shared" && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Estimated per seat</span>
-                      <span className="font-medium">{Math.round(fare.fareAmount / 2)} NLe</span>
+                      <span className="font-medium">{Math.round(fare.fareAmount / 3)} NLe</span>
                     </div>
                   )}
 
