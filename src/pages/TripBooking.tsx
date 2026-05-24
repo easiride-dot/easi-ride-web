@@ -48,7 +48,6 @@ const TripBooking = () => {
   const [fare, setFare] = useState<FareResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [pickupDetails, setPickupDetails] = useState("");
   const [rideType, setRideType] = useState<"solo" | "shared">("solo");
@@ -57,9 +56,7 @@ const TripBooking = () => {
   const isVerified = profile?.verification_status === "approved";
 
   const detectLocation = () => {
-    setError(null);
     if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser");
       return;
     }
     
@@ -90,26 +87,21 @@ const TripBooking = () => {
             setOriginLon(longitude);
             toast.success("Location detected", { id: toastId });
           } else {
-            setError(error || "Could not get street name. Please type it.");
             toast.dismiss(toastId);
           }
           setFare(null);
         } catch (error) {
-          setError("Could not detect street name. Please type it.");
           toast.dismiss(toastId);
         }
       },
       () => {
-        setError("Could not access GPS. Please type your location.");
         toast.dismiss(toastId);
       }
     );
   };
 
   const handleCalculateFare = async () => {
-    setError(null);
     if (!pickup.trim()) {
-      setError("Please enter your pickup location");
       return;
     }
     setCalculating(true);
@@ -135,7 +127,6 @@ const TripBooking = () => {
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result) {
-        setError(result?.error || "Could not calculate fare. Please try again.");
         return;
       }
       setFare(result as FareResult);
@@ -144,21 +135,18 @@ const TripBooking = () => {
         setOriginLon(result.originCoords.lon);
       }
     } catch {
-      setError("Could not reach the server. Please check your connection.");
+      // Silently handle errors
     } finally {
       setCalculating(false);
     }
   };
 
   const handleBookTrip = async () => {
-    setError(null);
     if (!user) {
-      setError("Please sign in first");
       navigate("/auth");
       return;
     }
     if (!fare) {
-      setError("Please calculate your fare first");
       return;
     }
 
@@ -180,14 +168,13 @@ const TripBooking = () => {
         });
 
       if (error) {
-        setError(error.message);
         return;
       }
 
       toast.success("Ride requested successfully!");
       navigate(`/matching/${data.id}`);
     } catch (err) {
-      setError("Could not request your ride. Please try again.");
+      // Silently handle errors
     } finally {
       setBooking(false);
     }
@@ -210,22 +197,6 @@ const TripBooking = () => {
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Book a single ride</h1>
           <p className="mt-2 text-sm text-muted-foreground">Pay only for the trip you need. No subscription required.</p>
         </div>
-
-        {/* Error display */}
-        {error && (
-          <div className="glass-card flex items-start gap-3 p-4 rounded-2xl border-destructive/20 bg-destructive/5 mb-6">
-            <ShieldAlert className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm text-destructive font-medium">{error}</p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ×
-            </button>
-          </div>
-        )}
 
         {/* Verification check */}
         {!profileLoading && !isVerified && (

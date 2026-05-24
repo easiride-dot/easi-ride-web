@@ -67,6 +67,9 @@ const ClaimSeat = () => {
   }, [id]);
 
   const handleClaimSeat = async () => {
+    if (authLoading) {
+      return; // Wait for auth to complete
+    }
     if (!user) {
       toast.error("Please sign in first to claim your seat.");
       navigate(`/auth?redirect=/claim/${id}`, { state: { rideId: id } });
