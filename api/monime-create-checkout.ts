@@ -278,8 +278,10 @@ export default async function handler(req: any, res: any) {
     console.log("Monime response status:", monimeResponse.status);
 
     const monimeData = await monimeResponse.json().catch(() => null);
+    console.log("Monime response data:", monimeData);
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
+      console.error("Monime API error:", { status: monimeResponse.status, data: monimeData });
       await supabase.from("payment_attempts")
         .update({ status: "failed", monime_status: monimeData?.result?.status ?? null })
         .eq("order_id", orderId);
