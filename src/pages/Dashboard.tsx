@@ -2,10 +2,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert } from "lucide-react";
+import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2 } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const statusStyles: Record<string, string> = {
   pending_friend_commitment: "bg-amber-500/10 text-amber-200",
@@ -25,6 +29,12 @@ const Dashboard = () => {
   const { rides } = useRides();
   const { subscription } = useSubscription();
   const { profile } = useProfile();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [claimedSeats, setClaimedSeats] = useState<any[]>([]);
+  const [loadingClaimed, setLoadingClaimed] = useState(true);
+  const [payingFor, setPayingFor] = useState<string | null>(null);
+
   const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
   const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
   const past = rides.filter((r) => r.status === "paid_and_dispatched");
@@ -32,6 +42,44 @@ const Dashboard = () => {
   const daysLeft = subscription
     ? Math.max(0, differenceInDays(new Date(subscription.end_date), new Date()))
     : 0;
+
+  useEffect(() => {
+    if (!user) {
+      setLoadingClaimed(false);
+      return;
+    }
+
+    const fetchClaimedSeats = async () => {
+      const { data, error } = await supabase
+        .from("ride_participants" as any)
+        .select(`
+          *,
+          rides (
+            id,
+            pickup,
+            destination,
+            time_slot,
+            type,
+            status,
+            payment_type,
+            fare_amount,
+            price,
+            profiles (full_name)
+          )
+        `)
+        .eq("user_id" as any, user.id)
+        .order("claimed_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching claimed seats:", error);
+      } else {
+        setClaimedSeats(data || []);
+      }
+      setLoadingClaimed(false);
+    };
+
+    fetchClaimedSeats();
+  }, [user]);
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -157,6 +205,69 @@ const Dashboard = () => {
           </div>
         </Section>
       )}
+
+      {/* Claimed Seats */}
+      {user && (
+        <Section title="Claimed Seats">
+          {loadingClaimed ? (
+            <div className="glass-card rounded-2xl p-8 text-center">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : claimedSeats.length === 0 ? (
+            <div className="glass-card rounded-2xl p-8 text-center">
+              <p className="text-sm text-muted-foreground">No claimed seats yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {claimedSeats.map((participant) => {
+                const ride = participant.rides;
+                if (!ride) return null;
+                const userShare = Math.round((ride.fare_amount || ride.price) / 3);
+                return (
+                  <ClaimedSeatCard
+                    key={participant.id}
+                    participant={participant}
+                    ride={ride}
+                    userShare={userShare}
+                    onPay={async () => {
+                      setPayingFor(participant.id);
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession();
+                        const response = await fetch("/api/monime-create-checkout", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                          },
+                          body: JSON.stringify({
+                            paymentType: "trip",
+                            rideId: ride.id,
+                            originAddress: ride.pickup,
+                            campus: ride.destination,
+                            rideType: ride.type,
+                            passengerCount: 3,
+                          }),
+                        });
+                        const result = await response.json().catch(() => null);
+                        if (!response.ok || !result?.redirectUrl) {
+                          toast.error(result?.error || "Unable to start payment");
+                          return;
+                        }
+                        window.location.href = result.redirectUrl;
+                      } catch {
+                        toast.error("Unable to start payment");
+                      } finally {
+                        setPayingFor(null);
+                      }
+                    }}
+                    paying={payingFor === participant.id}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </Section>
+      )}
     </div>
   );
 };
@@ -235,6 +346,60 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
           </a>
         )}
       </div>
+    </div>
+  );
+};
+
+const ClaimedSeatCard = ({ participant, ride, userShare, onPay, paying }: { participant: any; ride: any; userShare: number; onPay: () => void; paying: boolean }) => {
+  const inviterName = ride.profiles?.full_name || "A student";
+  const isPaid = participant.payment_status === 'paid';
+  const needsPayment = ride.payment_type === 'trip' && !isPaid;
+
+  return (
+    <div className="glass-card rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${statusStyles[ride.status] ?? "bg-secondary text-muted-foreground"}`}>
+          {statusLabel[ride.status] ?? ride.status.replace(/_/g, " ")}
+        </span>
+        {isPaid && (
+          <div className="flex items-center gap-1 text-emerald-500">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="text-xs font-medium">Paid</span>
+          </div>
+        )}
+      </div>
+      <div className="mb-3">
+        <p className="text-xs text-muted-foreground">Invited by</p>
+        <p className="font-medium text-sm">{inviterName}</p>
+      </div>
+      <div className="space-y-2.5 text-sm mb-4">
+        <div className="flex items-center gap-2.5">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate">{ride.pickup}</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <Navigation className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate">{ride.destination}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t border-hairline/70 pt-4 text-sm mb-4">
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">{ride.time_slot}</span>
+          <span className="text-muted-foreground">•</span>
+          <span className="capitalize">{ride.type}</span>
+        </div>
+      </div>
+      {needsPayment && (
+        <div className="p-3 rounded-xl bg-secondary/20 mb-3">
+          <p className="text-xs text-muted-foreground mb-1">Your share (1/3 of total fare)</p>
+          <p className="font-display text-2xl font-semibold">{userShare} NLe</p>
+        </div>
+      )}
+      {needsPayment && (
+        <Button onClick={onPay} disabled={paying} className="w-full h-12">
+          {paying ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : <><CreditCard className="h-4 w-4 mr-2" /> Pay {userShare} NLe</>}
+        </Button>
+      )}
     </div>
   );
 };
