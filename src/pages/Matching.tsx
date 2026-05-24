@@ -19,6 +19,8 @@ const Matching = () => {
     if (!ride) return;
     setPaying(true);
     try {
+      console.log("Starting payment for ride:", ride.id, "Type:", ride.type, "Payment type:", ride.paymentType);
+
       const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch("/api/monime-create-checkout", {
         method: "POST",
@@ -30,18 +32,25 @@ const Matching = () => {
           paymentType: "trip",
           rideId: ride.id,
           originAddress: ride.pickup,
-          campus: ride.destination
+          campus: ride.destination,
+          rideType: ride.type,
+          passengerCount: ride.type === "shared" ? 3 : 1,
         }),
       });
 
+      console.log("Payment response status:", response.status);
       const result = await response.json().catch(() => null);
+      console.log("Payment response data:", result);
+
       if (!response.ok || !result?.redirectUrl) {
+        console.error("Payment failed:", result);
         toast.error(result?.error || "Unable to start payment");
         setPaying(false);
         return;
       }
       window.location.href = result.redirectUrl;
-    } catch {
+    } catch (error) {
+      console.error("Payment error:", error);
       toast.error("Unable to start payment");
       setPaying(false);
     }
