@@ -168,9 +168,7 @@ const Matching = () => {
             variant="ghost"
             size="icon"
             onClick={() => {
-              const inviterName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "A student";
-              const shareText = `${inviterName} has invited you to share a keke ride! Claim your seat here: ${window.location.origin}/claim/${ride.id}`;
-              navigator.clipboard.writeText(shareText);
+              navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
               toast.success("Invite link copied");
             }}
           >
