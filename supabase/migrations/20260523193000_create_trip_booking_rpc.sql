@@ -103,6 +103,7 @@ declare
   current_user_id uuid := auth.uid();
   profile_status text;
   claimed_ride public.rides%rowtype;
+  seats_claimed_count integer;
 begin
   if current_user_id is null then
     raise exception 'Authentication required';
@@ -117,8 +118,32 @@ begin
     raise exception 'Student ID must be approved before claiming a seat.';
   end if;
 
+  -- Check current seats claimed
+  select seats_claimed
+  into seats_claimed_count
+  from public.rides
+  where id = p_ride_id
+    and type = 'shared'::public.ride_type
+    and status = 'pending_friend_commitment'::public.ride_status
+    and user_id <> current_user_id
+  for update;
+
+  if seats_claimed_count is null then
+    raise exception 'This pool is no longer accepting seat claims.';
+  end if;
+
+  if seats_claimed_count >= 2 then
+    raise exception 'This pool is already full (2 friends have already claimed seats).';
+  end if;
+
+  -- Increment seats claimed and update status if full
   update public.rides
-  set status = 'pool_locked_awaiting_driver'::public.ride_status
+  set
+    seats_claimed = seats_claimed + 1,
+    status = case
+      when seats_claimed + 1 >= 2 then 'pool_locked_awaiting_driver'::public.ride_status
+      else 'pending_friend_commitment'::public.ride_status
+    end
   where id = p_ride_id
     and type = 'shared'::public.ride_type
     and status = 'pending_friend_commitment'::public.ride_status

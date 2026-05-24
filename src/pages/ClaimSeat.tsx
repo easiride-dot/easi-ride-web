@@ -19,6 +19,7 @@ interface PoolRide {
   payment_type: string;
   price: number;
   fare_amount: number | null;
+  seats_claimed: number;
   profiles: {
     full_name: string | null;
   } | null;
@@ -49,7 +50,7 @@ const ClaimSeat = () => {
 
       const { data, error: fetchError } = await supabase
         .from("rides")
-        .select("id, pickup, destination, time_slot, type, status, created_at, user_id, payment_type, price, fare_amount, profiles(full_name)")
+        .select("id, pickup, destination, time_slot, type, status, created_at, user_id, payment_type, price, fare_amount, seats_claimed, profiles(full_name)")
         .eq("id", id)
         .maybeSingle();
 
@@ -148,9 +149,9 @@ const ClaimSeat = () => {
                   Your seat is locked in. Please complete your payment to confirm your spot.
                 </p>
                 <div className="mb-6 p-4 rounded-xl bg-secondary/20">
-                  <p className="text-xs text-muted-foreground mb-1">Your share</p>
+                  <p className="text-xs text-muted-foreground mb-1">Your share (1/3 of total fare)</p>
                   <p className="font-display text-3xl font-semibold">
-                    {ride.fare_amount ? Math.round(ride.fare_amount / 2) : Math.round(ride.price / 2)} NLe
+                    {ride.fare_amount ? Math.round(ride.fare_amount / 3) : Math.round(ride.price / 3)} NLe
                   </p>
                 </div>
                 <Button asChild variant="hero" className="w-full">
@@ -225,7 +226,7 @@ const ClaimSeat = () => {
             {/* Pool status badge */}
             <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-200">
               <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-              Waiting for seat confirmation — pool is still open.
+              {ride.seats_claimed}/2 seats claimed — {2 - ride.seats_claimed} seat(s) available.
             </div>
 
             <Button
