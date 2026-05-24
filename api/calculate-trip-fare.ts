@@ -113,8 +113,7 @@ export default async function handler(req: any, res: any) {
 
   const token = getAuthToken(req.headers.authorization);
   if (!token) {
-    console.error("❌ Calculate Trip Fare: Missing authorization token");
-    return res.status(401).json({ error: "Missing auth token" });
+    return res.status(401).json({ error: "Authentication required" });
   }
 
   const getEnv = (name: string) => {
@@ -127,8 +126,7 @@ export default async function handler(req: any, res: any) {
   const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ Calculate Trip Fare: Supabase client variables are undefined!");
-    return res.status(500).json({ error: "Supabase environment variables not configured" });
+    return res.status(500).json({ error: "Server configuration error" });
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -137,8 +135,7 @@ export default async function handler(req: any, res: any) {
 
   const { data: { user }, error: userError } = await supabase.auth.getUser(token);
   if (userError || !user) {
-    console.error("❌ Calculate Trip Fare: Auth token verification failed!", userError?.message || userError);
-    return res.status(401).json({ error: "Invalid auth token" });
+    return res.status(401).json({ error: "Authentication failed" });
   }
 
   // Rate limiting: max 30 requests per minute
@@ -165,14 +162,8 @@ export default async function handler(req: any, res: any) {
     distanceKm = route.distanceKm;
     originCoords = route.origin;
     campusCoords = route.campusPoint;
-    console.log(`📍 Trip fare: ${originAddress} → ${campus}`, {
-      origin: route.origin,
-      campus: route.campusPoint,
-      geocoded: route.geocoded,
-      distanceKm: route.distanceKm,
-    });
   } catch (err) {
-    console.error("Distance calculation error:", err);
+    // Log error without exposing details
     distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
     if (originLat !== undefined && originLon !== undefined) {

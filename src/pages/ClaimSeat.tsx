@@ -18,7 +18,7 @@ interface PoolRide {
   user_id: string;
   profiles: {
     full_name: string | null;
-  } | null | any;
+  } | null;
 }
 
 const ClaimSeat = () => {
@@ -86,7 +86,7 @@ const ClaimSeat = () => {
 
     setClaiming(true);
     try {
-      const { error: updateError } = await (supabase as any)
+      const { error: updateError } = await supabase
         .rpc("claim_shared_ride_seat", {
           p_ride_id: ride.id,
         });

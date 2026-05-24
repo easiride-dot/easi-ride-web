@@ -28,6 +28,23 @@ begin
     raise exception 'Authentication required';
   end if;
 
+  -- Input validation
+  if p_price < 0 then
+    raise exception 'Price cannot be negative';
+  end if;
+
+  if length(trim(p_pickup)) < 3 or length(trim(p_pickup)) > 500 then
+    raise exception 'Pickup location must be between 3 and 500 characters';
+  end if;
+
+  if length(trim(p_destination)) < 3 or length(trim(p_destination)) > 500 then
+    raise exception 'Destination must be between 3 and 500 characters';
+  end if;
+
+  if length(trim(p_time_slot)) < 3 or length(trim(p_time_slot)) > 50 then
+    raise exception 'Time slot must be between 3 and 50 characters';
+  end if;
+
   select *
   into active_subscription
   from public.subscriptions
@@ -63,9 +80,9 @@ begin
   )
   values (
     current_user_id,
-    p_pickup,
-    p_destination,
-    p_time_slot,
+    trim(p_pickup),
+    trim(p_destination),
+    trim(p_time_slot),
     p_type,
     p_price,
     'subscription',
@@ -107,6 +124,31 @@ begin
     raise exception 'Authentication required';
   end if;
 
+  -- Input validation
+  if p_price < 0 then
+    raise exception 'Price cannot be negative';
+  end if;
+
+  if p_distance_km is not null and p_distance_km < 0 then
+    raise exception 'Distance cannot be negative';
+  end if;
+
+  if p_fare_amount is not null and p_fare_amount < 0 then
+    raise exception 'Fare amount cannot be negative';
+  end if;
+
+  if length(trim(p_pickup)) < 3 or length(trim(p_pickup)) > 500 then
+    raise exception 'Pickup location must be between 3 and 500 characters';
+  end if;
+
+  if length(trim(p_destination)) < 3 or length(trim(p_destination)) > 500 then
+    raise exception 'Destination must be between 3 and 500 characters';
+  end if;
+
+  if length(trim(p_time_slot)) < 3 or length(trim(p_time_slot)) > 50 then
+    raise exception 'Time slot must be between 3 and 50 characters';
+  end if;
+
   select verification_status
   into profile_status
   from public.profiles
@@ -131,9 +173,9 @@ begin
   )
   values (
     current_user_id,
-    p_pickup,
-    p_destination,
-    p_time_slot,
+    trim(p_pickup),
+    trim(p_destination),
+    trim(p_time_slot),
     p_type,
     p_price,
     'trip',

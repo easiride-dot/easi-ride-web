@@ -161,7 +161,7 @@ const TripBooking = () => {
         ? `${pickup.trim()} (${pickupDetails.trim()})`
         : pickup.trim();
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .rpc("create_trip_booking", {
           p_pickup: isReturnTrip ? campus : customLocation,
           p_destination: isReturnTrip ? customLocation : campus,

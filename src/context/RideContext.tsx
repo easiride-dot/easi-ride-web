@@ -146,6 +146,18 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const assignDriver: RideContextValue["assignDriver"] = async (id, driver) => {
+    // Check if user is admin before allowing driver assignment
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .single();
+
+    if (roleError || !roleData) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
     const { data: row, error } = await supabase
       .from("rides")
       .update({

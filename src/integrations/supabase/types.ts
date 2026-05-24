@@ -284,6 +284,24 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["rides"]["Row"]
       }
+      create_trip_booking: {
+        Args: {
+          p_destination: string
+          p_distance_km?: number | null
+          p_fare_amount?: number | null
+          p_pickup: string
+          p_price: number
+          p_time_slot: string
+          p_type?: Database["public"]["Enums"]["ride_type"]
+        }
+        Returns: Database["public"]["Tables"]["rides"]["Row"]
+      }
+      claim_shared_ride_seat: {
+        Args: {
+          p_ride_id: string
+        }
+        Returns: Database["public"]["Tables"]["rides"]["Row"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
