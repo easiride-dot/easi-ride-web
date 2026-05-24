@@ -16,6 +16,9 @@ interface PoolRide {
   status: string;
   created_at: string;
   user_id: string;
+  payment_type: string;
+  price: number;
+  fare_amount: number | null;
   profiles: {
     full_name: string | null;
   } | null;
@@ -46,7 +49,7 @@ const ClaimSeat = () => {
 
       const { data, error: fetchError } = await supabase
         .from("rides")
-        .select("id, pickup, destination, time_slot, type, status, created_at, user_id, profiles(full_name)")
+        .select("id, pickup, destination, time_slot, type, status, created_at, user_id, payment_type, price, fare_amount, profiles(full_name)")
         .eq("id", id)
         .maybeSingle();
 
@@ -139,13 +142,32 @@ const ClaimSeat = () => {
           <div className="glass-card flex flex-col items-center p-10 text-center rounded-3xl border-emerald-500/20 bg-emerald-500/5">
             <CheckCircle2 className="h-14 w-14 text-emerald-500 mb-4" />
             <h1 className="font-display text-2xl font-semibold mb-2">Seat Claimed!</h1>
-            <p className="text-sm text-muted-foreground mb-6">
-              Your seat is locked in. A driver will be assigned shortly — no payment needed yet.
-            </p>
-            {user && (
-              <Button asChild variant="hero">
-                <Link to="/dashboard">View your dashboard</Link>
-              </Button>
+            {ride.payment_type === 'trip' ? (
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Your seat is locked in. Please complete your payment to confirm your spot.
+                </p>
+                <div className="mb-6 p-4 rounded-xl bg-secondary/20">
+                  <p className="text-xs text-muted-foreground mb-1">Your share</p>
+                  <p className="font-display text-3xl font-semibold">
+                    {ride.fare_amount ? Math.round(ride.fare_amount / 2) : Math.round(ride.price / 2)} NLe
+                  </p>
+                </div>
+                <Button asChild variant="hero" className="w-full">
+                  <Link to={`/matching/${ride.id}`}>Pay Now</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Your seat is locked in. A driver will be assigned shortly — payment is covered by the subscription.
+                </p>
+                {user && (
+                  <Button asChild variant="hero">
+                    <Link to="/dashboard">View your dashboard</Link>
+                  </Button>
+                )}
+              </>
             )}
           </div>
         ) : ride ? (
