@@ -73,7 +73,7 @@ const ClaimSeat = () => {
   const handleClaimSeat = async () => {
     if (!user) {
       toast.error("Please sign in first to claim your seat.");
-      navigate(`/auth?redirect=/claim/${id}`);
+      navigate(`/auth?redirect=/claim/${id}`, { state: { rideId: id } });
       return;
     }
     if (!ride) return;
@@ -154,8 +154,35 @@ const ClaimSeat = () => {
                     {ride.fare_amount ? Math.round(ride.fare_amount / 3) : Math.round(ride.price / 3)} NLe
                   </p>
                 </div>
-                <Button asChild variant="hero" className="w-full">
-                  <Link to={`/matching/${ride.id}`}>Pay Now</Link>
+                <Button
+                  onClick={async () => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const response = await fetch("/api/monime-create-checkout", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                      },
+                      body: JSON.stringify({
+                        paymentType: "trip",
+                        rideId: ride.id,
+                        originAddress: ride.pickup,
+                        campus: ride.destination,
+                        rideType: ride.type,
+                        passengerCount: 3,
+                      }),
+                    });
+                    const result = await response.json().catch(() => null);
+                    if (!response.ok || !result?.redirectUrl) {
+                      toast.error(result?.error || "Unable to start payment");
+                      return;
+                    }
+                    window.location.href = result.redirectUrl;
+                  }}
+                  variant="hero"
+                  className="w-full"
+                >
+                  Pay Now
                 </Button>
               </>
             ) : (
@@ -163,9 +190,16 @@ const ClaimSeat = () => {
                 <p className="text-sm text-muted-foreground mb-6">
                   Your seat is locked in. A driver will be assigned shortly — payment is covered by the subscription.
                 </p>
-                {user && (
+                {user ? (
                   <Button asChild variant="hero">
                     <Link to="/dashboard">View your dashboard</Link>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate(`/auth?redirect=/dashboard`, { state: { rideId: ride.id } })}
+                    variant="hero"
+                  >
+                    Sign In to View Dashboard
                   </Button>
                 )}
               </>

@@ -74,8 +74,8 @@ const Matching = () => {
 
   const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
 
-  // Calculate friend's share (1/3 of total fare for shared rides)
-  const friendShare = Math.round((ride.fareAmount || ride.price) / 3);
+  // Calculate share (1/3 of total fare for shared rides)
+  const userShare = Math.round((ride.fareAmount || ride.price) / 3);
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -90,10 +90,10 @@ const Matching = () => {
           </div>
           <div className="mb-4 p-4 rounded-xl bg-secondary/20">
             <p className="text-xs text-muted-foreground mb-1">Your share (1/3 of total fare)</p>
-            <p className="font-display text-3xl font-semibold">{friendShare} NLe</p>
+            <p className="font-display text-3xl font-semibold">{userShare} NLe</p>
           </div>
           <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12">
-            {paying ? <Loader2 className="animate-spin" /> : `Pay ${friendShare} NLe`}
+            {paying ? <Loader2 className="animate-spin" /> : `Pay ${userShare} NLe`}
           </Button>
         </div>
       )}
@@ -141,10 +141,10 @@ const Matching = () => {
               <div className="p-6 border-t border-hairline/70 bg-amber-500/5">
                 <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 mb-4">
                   <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-300">Driver is waiting! Pay {ride.price} NLe to confirm.</p>
+                  <p className="text-xs text-amber-300">Driver is waiting! Pay {isShared ? userShare : ride.price} NLe to confirm.</p>
                 </div>
                 <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12 bg-amber-500">
-                  {paying ? <Loader2 className="animate-spin" /> : `Pay ${ride.price} NLe`}
+                  {paying ? <Loader2 className="animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
                 </Button>
               </div>
             )}
