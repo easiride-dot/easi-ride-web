@@ -139,8 +139,6 @@ export default async function handler(req: any, res: any) {
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
@@ -218,7 +216,7 @@ export default async function handler(req: any, res: any) {
     const orderId = `er_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const appUrl = getAppUrl(req);
 
-    const { error: attemptError } = await supabaseAdmin.from("payment_attempts").insert({
+    const { error: attemptError } = await supabase.from("payment_attempts").insert({
       user_id: user.id,
       plan_type: payload.paymentType === "weekly" ? "solo" : "trip",
       amount,
@@ -282,7 +280,7 @@ export default async function handler(req: any, res: any) {
     const monimeData = await monimeResponse.json().catch(() => null);
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
-      await supabaseAdmin.from("payment_attempts")
+      await supabase.from("payment_attempts")
         .update({ status: "failed", monime_status: monimeData?.result?.status ?? null })
         .eq("order_id", orderId);
 
@@ -293,7 +291,7 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    await supabaseAdmin.from("payment_attempts")
+    await supabase.from("payment_attempts")
       .update({
         monime_session_id: monimeData.result.id,
         monime_order_number: monimeData.result.orderNumber ?? null,
