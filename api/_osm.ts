@@ -123,7 +123,7 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
 export async function searchLocations(query: string, limit = 5): Promise<LocationSuggestion[]> {
   const { left, top, right, bottom } = FREETOWN_VIEWBOX;
   const results = await nominatimFetch("/search", {
-    q: `${query}, Freetown`,
+    q: query,
     format: "json",
     limit: String(limit),
     countrycodes: "sl",
@@ -134,11 +134,34 @@ export async function searchLocations(query: string, limit = 5): Promise<Locatio
 
   if (!Array.isArray(results)) return [];
 
-  return results.map((item: { lat: string; lon: string; display_name?: string; address?: Record<string, string> }) => ({
+  const suggestions = results.map((item: { lat: string; lon: string; display_name?: string; address?: Record<string, string> }) => ({
     address: formatShortAddress(item),
     lat: parseFloat(item.lat),
     lon: parseFloat(item.lon),
   }));
+
+  // If no results, try with Freetown suffix
+  if (suggestions.length === 0) {
+    const resultsWithFreetown = await nominatimFetch("/search", {
+      q: `${query}, Freetown, Sierra Leone`,
+      format: "json",
+      limit: String(limit),
+      countrycodes: "sl",
+      viewbox: `${left},${top},${right},${bottom}`,
+      bounded: "0",
+      addressdetails: "1",
+    });
+
+    if (Array.isArray(resultsWithFreetown) && resultsWithFreetown.length > 0) {
+      return resultsWithFreetown.map((item: { lat: string; lon: string; display_name?: string; address?: Record<string, string> }) => ({
+        address: formatShortAddress(item),
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+      }));
+    }
+  }
+
+  return suggestions;
 }
 
 /** Road distance in km via OSRM (OpenStreetMap road network). */
