@@ -199,15 +199,21 @@ export default async function handler(req: any, res: any) {
       if (payload.rideId) {
         const { data: ride } = await supabase
           .from("rides")
-          .select("price, type")
+          .select("price, type, fare_amount")
           .eq("id", payload.rideId)
           .maybeSingle();
         if (ride) {
-          dbPrice = ride.price;
+          dbPrice = ride.fare_amount || ride.price;
           rideType = ride.type || "solo";
         }
       }
       amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, rideType, passengerCount, payload.originLat, payload.originLon);
+
+      // For shared rides, divide by 3 (creator + 2 friends)
+      if (rideType === "shared") {
+        amount = Math.round(amount / 3);
+      }
+
       campus = payload.campus;
       planTitle = "Easi Ride — Pay Per Trip";
       planDescription = `Single trip from ${payload.originAddress} to ${payload.campus}`;
