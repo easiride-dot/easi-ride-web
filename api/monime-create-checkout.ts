@@ -143,7 +143,10 @@ export default async function handler(req: any, res: any) {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) return res.status(401).json({ error: "Invalid auth token" });
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return res.status(401).json({ error: "Invalid auth token" });
+    }
 
     // Rate limiting checkout creations: max 5 requests per minute
     if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 5 }, user.id)) {
@@ -156,7 +159,10 @@ export default async function handler(req: any, res: any) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error("Profile fetch error:", profileError);
+      throw profileError;
+    }
     if (profile?.verification_status !== "approved") {
       return res.status(403).json({ error: "Student ID must be approved before payment" });
     }
@@ -225,20 +231,23 @@ export default async function handler(req: any, res: any) {
         pickupArea: pickupArea ?? undefined,
         campus,
         originAddress: payload.originAddress,
-        rideId: payload.rideId ?? undefined,
+        ...(payload.paymentType === "trip" && payload.rideId ? { rideId: payload.rideId } : {}),
       },
     });
 
     if (attemptError) {
+      console.error("Payment attempt insert error:", attemptError);
       if (isMissingPaymentAttemptsTable(attemptError)) {
         return res.status(500).json({ error: "Payment setup is incomplete. Apply the payment_attempts Supabase migration." });
       }
       throw new AppError(`Could not create payment attempt: ${getErrorMessage(attemptError)}`, 500, getErrorCode(attemptError));
     }
 
-    const completePath = payload.paymentType === "weekly" 
-      ? "/checkout/complete" 
+    const completePath = payload.paymentType === "weekly"
+      ? "/checkout/complete"
       : `/matching/${payload.rideId || ""}`;
+
+    console.log("Creating Monime checkout session:", { orderId, amount, planTitle });
 
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",
@@ -267,6 +276,8 @@ export default async function handler(req: any, res: any) {
         callbackState: orderId,
       }),
     });
+
+    console.log("Monime response status:", monimeResponse.status);
 
     const monimeData = await monimeResponse.json().catch(() => null);
 
