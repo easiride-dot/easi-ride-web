@@ -124,13 +124,13 @@ const TripBooking = () => {
           "Content-Type": "application/json",
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ 
-          originAddress: pickup.trim(), 
+        body: JSON.stringify({
+          originAddress: pickup.trim(),
           campus,
           originLat,
           originLon,
           rideType,
-          passengerCount: rideType === "shared" ? 2 : 1,
+          passengerCount: rideType === "shared" ? 3 : 1,
         }),
       });
       const result = await response.json().catch(() => null);
