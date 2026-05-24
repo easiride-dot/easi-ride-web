@@ -41,13 +41,19 @@ const ClaimSeat = () => {
 
     const fetchRide = async () => {
       setLoadingRide(true);
+      console.log("Fetching ride with ID:", id);
+      console.log("User authenticated:", !!user);
+
       const { data, error: fetchError } = await supabase
         .from("rides")
         .select("id, pickup, destination, time_slot, type, status, created_at, user_id, profiles(full_name)")
         .eq("id", id)
         .maybeSingle();
 
+      console.log("Fetch result:", { data, fetchError });
+
       if (fetchError || !data) {
+        console.error("Failed to fetch ride:", fetchError);
         setError("This ride pool could not be found or no longer exists.");
       } else if (data.status !== "pending_friend_commitment") {
         setError("This pool is no longer accepting seat claims — it may have already been locked.");
