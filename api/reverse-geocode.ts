@@ -33,10 +33,8 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: "Missing auth token" });
   }
 
-  const getEnv = (name: string) => process.env[name] ?? "";
-
-  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return res.status(500).json({ error: "Supabase environment variables not configured" });

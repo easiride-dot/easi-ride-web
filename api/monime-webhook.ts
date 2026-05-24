@@ -6,10 +6,27 @@ const getEnv = (name: string) => {
   return value;
 };
 
+// Verify webhook signature using API key
+const verifyWebhookAuth = (req: any): boolean => {
+  const webhookApiKey = process.env.MONIME_WEBHOOK_API_KEY;
+  if (!webhookApiKey) {
+    console.error("MONIME_WEBHOOK_API_KEY not configured");
+    return false;
+  }
+
+  const authHeader = req.headers["x-webhook-api-key"];
+  return authHeader === webhookApiKey;
+};
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Verify webhook authentication
+  if (!verifyWebhookAuth(req)) {
+    return res.status(401).json({ error: "Unauthorized: Invalid webhook API key" });
   }
 
   try {
@@ -25,9 +42,14 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: "Missing order reference" });
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
-    const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Supabase environment variables not configured");
+      return res.status(500).json({ error: "Server configuration error" });
+    }
+
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     // Fetch the payment attempt
