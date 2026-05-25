@@ -263,17 +263,6 @@ export default async function handler(req: any, res: any) {
       ? planDescription.substring(0, 97) + "..." 
       : planDescription;
 
-    console.log("=== MONIME CHECKOUT DEBUG ===");
-    console.log("Creating Monime checkout session:", { orderId, amount, planTitle });
-    console.log("Monime request payload:", {
-      name: planTitle,
-      description: truncatedDescription,
-      reference: orderId,
-      amount: Math.round(amount * 100),
-      currency: "SLE"
-    });
-    console.log("=== END DEBUG ===");
-
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",
       headers: {
@@ -302,10 +291,7 @@ export default async function handler(req: any, res: any) {
       }),
     });
 
-    console.log("Monime response status:", monimeResponse.status);
-
     const monimeData = await monimeResponse.json().catch(() => null);
-    console.log("Monime response data:", JSON.stringify(monimeData, null, 2));
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
       console.error("Monime API error:", { status: monimeResponse.status, data: monimeData });
