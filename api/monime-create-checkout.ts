@@ -258,11 +258,16 @@ export default async function handler(req: any, res: any) {
       ? "/checkout/complete"
       : `/matching/${payload.rideId || ""}`;
 
+    // Truncate description to max 100 characters for Monime
+    const truncatedDescription = planDescription.length > 100 
+      ? planDescription.substring(0, 97) + "..." 
+      : planDescription;
+
     console.log("=== MONIME CHECKOUT DEBUG ===");
     console.log("Creating Monime checkout session:", { orderId, amount, planTitle });
     console.log("Monime request payload:", {
       name: planTitle,
-      description: planDescription,
+      description: truncatedDescription,
       reference: orderId,
       amount: Math.round(amount * 100),
       currency: "SLE"
@@ -280,7 +285,7 @@ export default async function handler(req: any, res: any) {
       },
       body: JSON.stringify({
         name: planTitle,
-        description: planDescription,
+        description: truncatedDescription,
         reference: orderId,
         successUrl: `${appUrl}/api/monime-checkout-success?orderId=${encodeURIComponent(orderId)}`,
         cancelUrl: `${appUrl}/api/monime-checkout-cancel?paymentType=${payload.paymentType}&orderId=${encodeURIComponent(orderId)}`,
@@ -289,7 +294,7 @@ export default async function handler(req: any, res: any) {
           name: planTitle,
           quantity: 1,
           reference: orderId,
-          description: planDescription,
+          description: truncatedDescription,
           price: { currency: "SLE", value: Math.round(amount * 100) },
         }],
         metadata: { app: "easi-ride", userId: user.id, paymentType: payload.paymentType, orderId, campus },
