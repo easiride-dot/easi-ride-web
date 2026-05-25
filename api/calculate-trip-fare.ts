@@ -22,7 +22,56 @@ const getAuthToken = (authorization?: string | string[]) => {
 };
 
 // Pricing engine function helper
-export function calculatePricing(distanceKm: number, rideType: "solo" | "shared", passengerCount: number) {
+export async function calculatePricing(distanceKm: number, rideType: "solo" | "shared", passengerCount: number, supabase: any) {
+  let gross = 0;
+  let commission = 0;
+  let driverNet = 0;
+
+  // Determine distance bracket
+  let distanceBracket: "short" | "medium" | "long";
+  if (distanceKm < 5.0) {
+    distanceBracket = "short";
+  } else if (distanceKm < 10.0) {
+    distanceBracket = "medium";
+  } else {
+    distanceBracket = "long";
+  }
+
+  // Fetch pricing from database
+  try {
+    const { data: pricingData, error } = await supabase
+      .from("pricing_config" as any)
+      .select("gross_fare, commission")
+      .eq("distance_bracket", distanceBracket)
+      .eq("ride_type", rideType)
+      .single();
+
+    if (error || !pricingData) {
+      // Fallback to hardcoded values if database fetch fails
+      console.error("Error fetching pricing from database, using fallback:", error);
+      return calculatePricingFallback(distanceKm, rideType, passengerCount);
+    }
+
+    gross = pricingData.gross_fare;
+    commission = pricingData.commission;
+
+    if (rideType === "shared") {
+      gross = gross * passengerCount;
+      commission = commission * passengerCount;
+    }
+
+    driverNet = gross - commission;
+  } catch (err) {
+    // Fallback to hardcoded values on any error
+    console.error("Error in pricing calculation, using fallback:", err);
+    return calculatePricingFallback(distanceKm, rideType, passengerCount);
+  }
+
+  return { gross, commission, driverNet };
+}
+
+// Fallback pricing function with hardcoded values
+function calculatePricingFallback(distanceKm: number, rideType: "solo" | "shared", passengerCount: number) {
   let gross = 0;
   let commission = 0;
   let driverNet = 0;
@@ -177,7 +226,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  const pricing = calculatePricing(distanceKm, rideType, passengerCount);
+  const pricing = await calculatePricing(distanceKm, rideType, passengerCount, supabase);
 
   return res.status(200).json({
     distanceKm: Number(distanceKm.toFixed(1)),
