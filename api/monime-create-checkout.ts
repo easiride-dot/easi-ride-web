@@ -258,6 +258,7 @@ export default async function handler(req: any, res: any) {
       ? "/checkout/complete"
       : `/matching/${payload.rideId || ""}`;
 
+    console.log("=== MONIME CHECKOUT DEBUG ===");
     console.log("Creating Monime checkout session:", { orderId, amount, planTitle });
     console.log("Monime request payload:", {
       name: planTitle,
@@ -266,6 +267,7 @@ export default async function handler(req: any, res: any) {
       amount: Math.round(amount * 100),
       currency: "SLE"
     });
+    console.log("=== END DEBUG ===");
 
     const monimeResponse = await fetch("https://api.monime.io/v1/checkout-sessions", {
       method: "POST",
