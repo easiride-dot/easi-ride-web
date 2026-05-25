@@ -300,7 +300,7 @@ export default async function handler(req: any, res: any) {
     console.log("Monime response status:", monimeResponse.status);
 
     const monimeData = await monimeResponse.json().catch(() => null);
-    console.log("Monime response data:", monimeData);
+    console.log("Monime response data:", JSON.stringify(monimeData, null, 2));
 
     if (!monimeResponse.ok || !monimeData?.result?.redirectUrl || !monimeData?.result?.id) {
       console.error("Monime API error:", { status: monimeResponse.status, data: monimeData });
