@@ -130,7 +130,8 @@ export default async function handler(req: any, res: any) {
     isEstimate = true;
   }
 
-  const singleFare = calculatePricing(distanceKm, "solo", 1).gross;
+  const pricing = await calculatePricing(distanceKm, "solo", 1, supabase);
+  const singleFare = pricing.gross;
 
   // Weekly plan = Single trip fare × 6
   const weeklyPrice = singleFare * 6;

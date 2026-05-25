@@ -53,7 +53,7 @@ export async function calculatePricing(distanceKm: number, rideType: "solo" | "s
     }
 
     gross = pricingData.gross_fare;
-    commission = pricingData.commission;
+    commission = gross * (pricingData.commission / 100);
 
     if (rideType === "shared") {
       gross = gross * passengerCount;
@@ -79,31 +79,31 @@ function calculatePricingFallback(distanceKm: number, rideType: "solo" | "shared
   if (distanceKm < 5.0) {
     if (rideType === "solo") {
       gross = 25.0;
-      commission = 5.0;
-      driverNet = 20.0;
+      commission = gross * 0.20; // 20%
+      driverNet = gross - commission;
     } else {
       gross = 15.0 * passengerCount;
-      commission = 3.0 * passengerCount;
+      commission = gross * 0.20; // 20%
       driverNet = gross - commission;
     }
   } else if (distanceKm < 10.0) {
     if (rideType === "solo") {
       gross = 55.0;
-      commission = 11.0;
-      driverNet = 44.0;
+      commission = gross * 0.20; // 20%
+      driverNet = gross - commission;
     } else {
       gross = 25.0 * passengerCount;
-      commission = 5.0 * passengerCount;
+      commission = gross * 0.20; // 20%
       driverNet = gross - commission;
     }
   } else {
     if (rideType === "solo") {
       gross = 85.0;
-      commission = 8.5;
-      driverNet = 76.5;
+      commission = gross * 0.10; // 10%
+      driverNet = gross - commission;
     } else {
       gross = 45.0 * passengerCount;
-      commission = 9.0 * passengerCount;
+      commission = gross * 0.20; // 20%
       driverNet = gross - commission;
     }
   }
