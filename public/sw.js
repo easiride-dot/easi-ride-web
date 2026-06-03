@@ -1,10 +1,11 @@
-const CACHE_NAME = 'easi-ride-v1';
+const CACHE_NAME = 'easi-ride-v2';
+const precacheManifest = self.__WB_MANIFEST || [];
 const urlsToCache = [
   '/',
   '/manifest.json',
   '/favicon.svg',
-  '/og-image.png'
-];
+  ...precacheManifest.map((entry) => entry.url),
+].filter(Boolean);
 
 // Install event - cache app shell
 self.addEventListener('install', (event) => {
@@ -65,6 +66,56 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    })
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {
+      title: 'Easi Ride',
+      body: event.data?.text() || 'You have a new notification.',
+    };
+  }
+
+  const title = payload.title || 'Easi Ride';
+  const options = {
+    body: payload.body || payload.message || 'You have a new notification.',
+    icon: payload.icon || '/icon-192x192.svg',
+    badge: payload.badge || '/icon-192x192.svg',
+    tag: payload.tag || 'easi-ride-notification',
+    data: {
+      url: payload.url || '/account/notifications',
+      ...payload.data,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = new URL(event.notification.data?.url || '/account/notifications', self.location.origin).href;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client && client.url.startsWith(self.location.origin)) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+
+      return undefined;
     })
   );
 });

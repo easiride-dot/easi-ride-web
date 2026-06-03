@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Bell, CheckCircle2, Car, CreditCard, Tag } from "lucide-react";
+import { ArrowLeft, Bell, BellRing, CheckCircle2, Car, CreditCard, Loader2, Tag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
+import { Switch } from "@/components/ui/switch";
+import {
+  getExistingPushSubscription,
+  getPushSupportStatus,
+  PushSupportStatus,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+} from "@/lib/pushNotifications";
 
 type Notification = Tables<"notifications">;
 type NotificationType = "system" | "ride" | "payment" | "promo";
@@ -27,6 +35,9 @@ const Notifications = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pushStatus, setPushStatus] = useState<PushSupportStatus>("default");
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -71,6 +82,48 @@ const Notifications = () => {
     };
   }, [user]);
 
+  useEffect(() => {
+    const checkPushState = async () => {
+      const status = getPushSupportStatus();
+      setPushStatus(status);
+
+      if (status === "unsupported" || status === "missing-vapid-key") return;
+
+      try {
+        const subscription = await getExistingPushSubscription();
+        setPushEnabled(Boolean(subscription));
+      } catch (error) {
+        console.error("Error checking push subscription:", error);
+      }
+    };
+
+    checkPushState();
+  }, []);
+
+  const togglePushNotifications = async (enabled: boolean) => {
+    if (!user) return;
+
+    setPushBusy(true);
+
+    try {
+      if (enabled) {
+        await subscribeToPushNotifications(user.id);
+        setPushEnabled(true);
+        setPushStatus(getPushSupportStatus());
+        toast.success("Push notifications enabled");
+      } else {
+        await unsubscribeFromPushNotifications();
+        setPushEnabled(false);
+        toast.success("Push notifications disabled");
+      }
+    } catch (error: unknown) {
+      setPushStatus(getPushSupportStatus());
+      toast.error(error instanceof Error ? error.message : "Could not update push notifications");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   const markAllAsRead = async () => {
     if (!user) return;
     try {
@@ -108,6 +161,21 @@ const Notifications = () => {
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const pushDisabled =
+    pushBusy ||
+    pushStatus === "unsupported" ||
+    pushStatus === "missing-vapid-key" ||
+    pushStatus === "denied";
+  const pushDescription =
+    pushStatus === "unsupported"
+      ? "This browser does not support push notifications."
+      : pushStatus === "missing-vapid-key"
+        ? "Push notifications need VAPID keys before they can be enabled."
+        : pushStatus === "denied"
+          ? "Notifications are blocked in your browser settings."
+          : pushEnabled
+            ? "This device can receive ride and payment alerts."
+            : "Enable alerts for ride updates, payments, and account messages.";
 
   return (
     <div className="space-y-6 animate-fade-up pb-24">
@@ -136,6 +204,30 @@ const Notifications = () => {
             <CheckCircle2 className="h-5 w-5" />
           </button>
         )}
+      </div>
+
+      <div className="glass-card flex items-center justify-between gap-4 rounded-2xl p-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-hairline bg-background shadow-sm">
+            <BellRing className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-medium">Push notifications</h2>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{pushDescription}</p>
+          </div>
+        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+          {pushBusy ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : (
+            <Switch
+              checked={pushEnabled}
+              disabled={pushDisabled}
+              onCheckedChange={togglePushNotifications}
+              aria-label="Toggle push notifications"
+            />
+          )}
+        </div>
       </div>
 
       {/* Notifications List */}

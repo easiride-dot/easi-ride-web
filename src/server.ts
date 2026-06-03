@@ -28,6 +28,7 @@ app.all("/api/monime-checkout-success", await loadHandler("/api/monime-checkout-
 app.all("/api/monime-checkout-cancel", await loadHandler("/api/monime-checkout-cancel.ts"));
 app.post("/api/monime-stk-push", await loadHandler("/api/monime-stk-push.ts"));
 app.post("/api/monime-webhook", await loadHandler("/api/monime-webhook.ts"));
+app.post("/api/send-push-notification", await loadHandler("/api/send-push-notification.ts"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

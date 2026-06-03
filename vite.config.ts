@@ -19,8 +19,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'og-image.png'],
+      includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Easi Ride',
         short_name: 'Easi Ride',
