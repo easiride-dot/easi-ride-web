@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeToPushNotifications } from "@/lib/pushNotifications";
 
 interface AuthContextValue {
   user: User | null;
@@ -17,7 +18,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Subscribe FIRST, then read existing session.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
@@ -34,6 +34,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    subscribeIfPossible(user.id);
+  }, [user]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -49,6 +54,26 @@ export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+};
+
+const subscribeIfPossible = async (userId: string) => {
+  if (typeof window === "undefined") return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
+  if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) return;
+  if (Notification.permission === "denied") return;
+  try {
+    const registration = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) return;
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+    }
+    await subscribeToPushNotifications(userId);
+  } catch {
+    // Silent fail — not essential for app functionality
+  }
 };
 
 const cleanAuthTokensFromUrl = () => {
