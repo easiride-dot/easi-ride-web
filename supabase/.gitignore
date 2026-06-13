@@ -1,0 +1,2 @@
+# Supabase local dev artifacts - never commit these
+.temp/

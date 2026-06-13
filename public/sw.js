@@ -3,7 +3,6 @@ const precacheManifest = self.__WB_MANIFEST || [];
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/favicon.svg',
   ...precacheManifest.map((entry) => entry.url),
 ].filter(Boolean);
 

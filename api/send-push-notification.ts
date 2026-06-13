@@ -1,5 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-import webPush from "web-push";
 import { z } from "zod";
 import { rateLimit } from "./_rate-limit.js";
 
@@ -14,10 +12,6 @@ type ApiResponse = {
   status: (statusCode: number) => {
     json: (body: unknown) => unknown;
   };
-};
-type PushSendError = {
-  statusCode?: number;
-  message?: string;
 };
 
 const notificationSchema = z.object({
@@ -37,8 +31,9 @@ const getEnv = (name: string) => {
 
 const verifyApiKey = (req: ApiRequest) => {
   const expected = process.env.PUSH_NOTIFICATIONS_API_KEY;
+  const actual = req.headers["x-api-key"];
   if (!expected) return false;
-  return req.headers["x-api-key"] === expected;
+  return Array.isArray(actual) ? actual.includes(expected) : actual === expected;
 };
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -61,77 +56,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   try {
-    const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
-
-    webPush.setVapidDetails(
-      process.env.VAPID_SUBJECT || "mailto:support@easiride.app",
-      getEnv("VAPID_PUBLIC_KEY"),
-      getEnv("VAPID_PRIVATE_KEY")
-    );
-
-    const { userId, title, message, type, url, saveInApp } = parsed.data;
-
-    if (saveInApp) {
-      const { error } = await supabase.from("notifications").insert({
-        user_id: userId,
-        title,
-        message,
-        type,
-      });
-
-      if (error) {
-        console.error("Could not save in-app notification:", error);
-      }
-    }
-
-    const { data: subscriptions, error: subscriptionError } = await supabase
-      .from("push_subscriptions")
-      .select("id, endpoint, p256dh, auth")
-      .eq("user_id", userId);
-
-    if (subscriptionError) throw subscriptionError;
-
-    const payload = JSON.stringify({
-      title,
-      body: message,
-      url,
-      tag: `${type}-${userId}`,
-      data: { type },
+    const edgeResponse = await fetch(`${getEnv("SUPABASE_URL")}/functions/v1/send-push-notification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": getEnv("PUSH_NOTIFICATIONS_API_KEY"),
+      },
+      body: JSON.stringify(parsed.data),
     });
 
-    const results = await Promise.allSettled(
-      (subscriptions || []).map((subscription) =>
-        webPush.sendNotification(
-          {
-            endpoint: subscription.endpoint,
-            keys: {
-              p256dh: subscription.p256dh,
-              auth: subscription.auth,
-            },
-          },
-          payload
-        )
-      )
-    );
+    const responseBody = await edgeResponse.json().catch(() => ({}));
 
-    const expiredEndpoints = results
-      .map((result, index) => ({ result, subscription: subscriptions?.[index] }))
-      .filter(({ result }) => {
-        if (result.status !== "rejected") return false;
-        const statusCode = (result.reason as PushSendError)?.statusCode;
-        return statusCode === 404 || statusCode === 410;
-      })
-      .map(({ subscription }) => subscription?.endpoint)
-      .filter(Boolean);
-
-    if (expiredEndpoints.length > 0) {
-      await supabase.from("push_subscriptions").delete().in("endpoint", expiredEndpoints);
+    if (!edgeResponse.ok) {
+      return res.status(edgeResponse.status).json(responseBody);
     }
 
-    const sent = results.filter((result) => result.status === "fulfilled").length;
-    const failed = results.length - sent;
-
-    return res.status(200).json({ success: true, sent, failed });
+    return res.status(200).json(responseBody);
   } catch (error: unknown) {
     console.error("Push notification error:", error);
     const message = error instanceof Error ? error.message : "Could not send push notification";
