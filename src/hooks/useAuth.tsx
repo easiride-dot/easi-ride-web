@@ -60,19 +60,15 @@ const subscribeIfPossible = async (userId: string) => {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return;
   if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) return;
-  if (Notification.permission === "denied") return;
+  if (Notification.permission !== "granted") return;
   try {
     const registration = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
     const existing = await registration.pushManager.getSubscription();
     if (existing) return;
-    if (Notification.permission === "default") {
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-    }
     await subscribeToPushNotifications(userId);
   } catch {
-    // Silent fail — not essential for app functionality
+    // Silent fail
   }
 };
 

@@ -5,11 +5,13 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2 } from "lucide-react";
+import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { BellRing, BellOff } from "lucide-react";
+import { subscribeToPushNotifications, getExistingPushSubscription } from "@/lib/pushNotifications";
 
 const statusStyles: Record<string, string> = {
   pending_friend_commitment: "bg-amber-500/10 text-amber-200",
@@ -34,6 +36,7 @@ const Dashboard = () => {
   const [claimedSeats, setClaimedSeats] = useState<any[]>([]);
   const [loadingClaimed, setLoadingClaimed] = useState(true);
   const [payingFor, setPayingFor] = useState<string | null>(null);
+  const [pushState, setPushState] = useState<"loading" | "enabled" | "prompt" | "unsupported">("loading");
 
   const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
   const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
@@ -80,6 +83,36 @@ const Dashboard = () => {
 
     fetchClaimedSeats();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      setPushState("unsupported");
+      return;
+    }
+    if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+      setPushState("unsupported");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setPushState("unsupported");
+      return;
+    }
+    getExistingPushSubscription().then(sub => {
+      setPushState(sub ? "enabled" : "prompt");
+    });
+  }, [user]);
+
+  const enableNotifications = async () => {
+    if (!user) return;
+    try {
+      await subscribeToPushNotifications(user.id);
+      setPushState("enabled");
+      toast.success("Push notifications enabled");
+    } catch {
+      toast.error("Could not enable notifications. Check your browser settings.");
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -130,6 +163,23 @@ const Dashboard = () => {
                 : "Your student ID was not approved. Please contact support or update your profile."}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Push notification prompt */}
+      {pushState === "prompt" && (
+        <div className="rounded-2xl p-4 flex gap-3 bg-primary/10 border border-primary/20">
+          <Bell className="h-5 w-5 shrink-0 text-primary" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Stay updated</p>
+            <p className="text-xs opacity-80 mt-0.5">Get notified when your driver is assigned</p>
+          </div>
+          <button
+            onClick={enableNotifications}
+            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+          >
+            Enable
+          </button>
         </div>
       )}
 
