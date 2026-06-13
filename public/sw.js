@@ -84,8 +84,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'Easi Ride';
   const options = {
     body: payload.body || payload.message || 'You have a new notification.',
-    icon: payload.icon || '/icon-192x192.svg',
-    badge: payload.badge || '/icon-192x192.svg',
+    icon: payload.icon || '/icon-192x192.png',
+    badge: payload.badge || '/icon-192x192.png',
     tag: payload.tag || 'easi-ride-notification',
     data: {
       url: payload.url || '/account/notifications',
