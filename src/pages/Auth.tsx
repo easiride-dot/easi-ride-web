@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Upload, Users } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,9 @@ const Auth = () => {
   const [busy, setBusy] = useState(false);
   const [signupRetryAt, setSignupRetryAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [atCapacity, setAtCapacity] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
 
   useEffect(() => {
     if (user) navigate(from, { replace: true });
@@ -58,6 +61,57 @@ const Auth = () => {
 
     return () => window.clearInterval(intervalId);
   }, [signupRetryAt]);
+
+  useEffect(() => {
+    const checkCapacity = async () => {
+      try {
+        const { data: settings } = await supabase
+          .from("app_settings")
+          .select("setting_value")
+          .eq("setting_name", "max_users")
+          .single();
+
+        if (!settings) return;
+
+        const { data: count } = await supabase.rpc("get_user_count");
+        if (typeof count === "number" && count >= parseInt(settings.setting_value, 10)) {
+          setAtCapacity(true);
+        }
+      } catch {
+        // Table might not exist yet — ignore
+      }
+    };
+    checkCapacity();
+  }, []);
+
+  const joinWaitlist = async () => {
+    if (!fullName.trim() || !email.trim()) {
+      toast.error("Enter your name and email");
+      return;
+    }
+    setWaitlistBusy(true);
+    try {
+      const { error } = await supabase.from("waitlist").insert({
+        full_name: fullName.trim(),
+        email: email.trim(),
+      });
+      if (error) {
+        if (error.message?.includes("duplicate") || error.message?.includes("unique")) {
+          toast.error("You're already on the waitlist");
+        } else {
+          throw error;
+        }
+      } else {
+        setOnWaitlist(true);
+        toast.success("You've been added to the waitlist");
+      }
+    } catch (error) {
+      toast.error("Could not join waitlist. Try again.");
+      console.error(error);
+    } finally {
+      setWaitlistBusy(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -234,7 +288,37 @@ const Auth = () => {
             </p>
           )}
 
-          {mode !== "forgot" && (
+          {mode === "signup" && atCapacity && !onWaitlist && (
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-4 text-center">
+                <Users className="h-8 w-8 mx-auto text-destructive mb-2" />
+                <p className="text-sm font-semibold">App is at capacity</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  We've reached our current user limit. Join the waitlist and we'll notify you when a spot opens.
+                </p>
+              </div>
+              <Button
+                onClick={joinWaitlist}
+                disabled={waitlistBusy}
+                variant="hero"
+                className="w-full"
+              >
+                {waitlistBusy ? "Joining..." : "Join Waitlist"}
+              </Button>
+            </div>
+          )}
+
+          {mode === "signup" && onWaitlist && (
+            <div className="mt-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-center">
+              <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500 mb-2" />
+              <p className="text-sm font-semibold">You're on the waitlist</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                We'll email you when a spot opens up.
+              </p>
+            </div>
+          )}
+
+          {mode !== "forgot" && !(mode === "signup" && (atCapacity || onWaitlist)) && (
             <>
               <Button
                 type="button"
@@ -258,6 +342,7 @@ const Auth = () => {
             </>
           )}
 
+          {mode === "forgot" || !(mode === "signup" && (atCapacity || onWaitlist)) ? (
           <form onSubmit={mode === "forgot" ? handleResetPassword : handleSubmit} className="space-y-4">
             {mode === "signup" && (
               <>
@@ -360,6 +445,7 @@ const Auth = () => {
               {busy ? "Please wait..." : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
             </Button>
           </form>
+          ) : null}
 
           <button
             type="button"
