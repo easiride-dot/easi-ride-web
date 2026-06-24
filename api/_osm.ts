@@ -177,7 +177,9 @@ export async function distanceToCampusKm(
   originAddress: string,
   campus: string,
   originLat?: number,
-  originLon?: number
+  originLon?: number,
+  campusLat?: number,
+  campusLon?: number
 ): Promise<{ distanceKm: number; origin: GeoPoint; campusPoint: GeoPoint; geocoded: boolean }> {
   let origin: GeoPoint;
   let geocoded = false;
@@ -190,7 +192,10 @@ export async function distanceToCampusKm(
     geocoded = true;
   }
 
-  const campusPoint = getCampusCoords(campus);
+  const campusPoint =
+    campusLat != null && campusLon != null
+      ? { lat: campusLat, lon: campusLon }
+      : getCampusCoords(campus);
   const distanceKm = await routeDistanceKm(origin, campusPoint);
 
   return { distanceKm, origin, campusPoint, geocoded };

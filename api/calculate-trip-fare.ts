@@ -10,6 +10,8 @@ const schema = z.object({
   campus: z.string().min(1).max(100).transform(sanitize),
   originLat: z.number().min(-90).max(90).optional(),
   originLon: z.number().min(-180).max(180).optional(),
+  campusLat: z.number().min(-90).max(90).optional(),
+  campusLon: z.number().min(-180).max(180).optional(),
   ride_type: z.enum(["solo", "shared"]).optional(),
   rideType: z.enum(["solo", "shared"]).optional(),
   passenger_count: z.number().int().min(1).optional(),
@@ -197,7 +199,7 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
 
-  const { originAddress, campus, originLat, originLon } = parsed.data;
+  const { originAddress, campus, originLat, originLon, campusLat, campusLon } = parsed.data;
   const rideType = parsed.data.rideType || parsed.data.ride_type || "solo";
   const passengerCount = parsed.data.passengerCount || parsed.data.passenger_count || 1;
 
@@ -207,7 +209,7 @@ export default async function handler(req: any, res: any) {
   let campusCoords: { lat: number; lon: number } | undefined = undefined;
 
   try {
-    const route = await distanceToCampusKm(originAddress, campus, originLat, originLon);
+    const route = await distanceToCampusKm(originAddress, campus, originLat, originLon, campusLat, campusLon);
     distanceKm = route.distanceKm;
     originCoords = route.origin;
     campusCoords = route.campusPoint;
@@ -219,8 +221,12 @@ export default async function handler(req: any, res: any) {
       originCoords = { lat: originLat, lon: originLon };
     }
     try {
-      const { getCampusCoords } = await import("./_osm.js");
-      campusCoords = getCampusCoords(campus);
+      if (campusLat !== undefined && campusLon !== undefined) {
+        campusCoords = { lat: campusLat, lon: campusLon };
+      } else {
+        const { getCampusCoords } = await import("./_osm.js");
+        campusCoords = getCampusCoords(campus);
+      }
     } catch {
       // ignore
     }

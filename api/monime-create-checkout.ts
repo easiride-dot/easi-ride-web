@@ -13,6 +13,8 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
     campus: z.string().min(1).max(100).transform(sanitize),
     originLat: z.number().min(-90).max(90).optional(),
     originLon: z.number().min(-180).max(180).optional(),
+    campusLat: z.number().min(-90).max(90).optional(),
+    campusLon: z.number().min(-180).max(180).optional(),
   }),
   z.object({
     paymentType: z.literal("trip"),
@@ -20,6 +22,8 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
     campus: z.string().min(1).max(100).transform(sanitize),
     originLat: z.number().min(-90).max(90).optional(),
     originLon: z.number().min(-180).max(180).optional(),
+    campusLat: z.number().min(-90).max(90).optional(),
+    campusLon: z.number().min(-180).max(180).optional(),
     rideId: z.string().uuid().optional(),
     ride_type: z.enum(["solo", "shared"]).optional(),
     rideType: z.enum(["solo", "shared"]).optional(),
@@ -52,11 +56,21 @@ const getMockDistance = (origin: string, campus: string) => {
   return DEFAULT_KM;
 };
 
-const getTripFare = async (originAddress: string, campus: string, rideType: "solo" | "shared", passengerCount: number, supabase: any, lat?: number, lon?: number): Promise<number> => {
+const getTripFare = async (
+  originAddress: string,
+  campus: string,
+  rideType: "solo" | "shared",
+  passengerCount: number,
+  supabase: any,
+  lat?: number,
+  lon?: number,
+  campusLat?: number,
+  campusLon?: number
+): Promise<number> => {
   let distanceKm: number;
 
   try {
-    const route = await distanceToCampusKm(originAddress, campus, lat, lon);
+    const route = await distanceToCampusKm(originAddress, campus, lat, lon, campusLat, campusLon);
     distanceKm = route.distanceKm;
     console.log(`📍 Monime checkout fare: ${originAddress} → ${campus}`, {
       origin: route.origin,
@@ -192,7 +206,7 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: "You already have an active subscription" });
       }
       // Server-side price calculation — client cannot manipulate this
-      const singleFare = await getTripFare(payload.originAddress, payload.campus, "solo", 1, supabase, payload.originLat, payload.originLon);
+      const singleFare = await getTripFare(payload.originAddress, payload.campus, "solo", 1, supabase, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
       amount = singleFare * WEEKLY_MULTIPLIER;
       pickupArea = payload.originAddress;
       campus = payload.campus;
@@ -214,7 +228,7 @@ export default async function handler(req: any, res: any) {
           rideType = ride.type || "solo";
         }
       }
-      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, rideType, passengerCount, supabase, payload.originLat, payload.originLon);
+      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, rideType, passengerCount, supabase, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
 
       // For shared rides, divide by 3 (creator + 2 friends)
       if (rideType === "shared") {

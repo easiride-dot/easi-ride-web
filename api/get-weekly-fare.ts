@@ -11,6 +11,8 @@ const schema = z.object({
   campus: z.string().min(1).max(100).transform(sanitize),
   originLat: z.number().min(-90).max(90).optional(),
   originLon: z.number().min(-180).max(180).optional(),
+  campusLat: z.number().min(-90).max(90).optional(),
+  campusLon: z.number().min(-180).max(180).optional(),
 });
 
 const BASE_RATE = 7;       // NLe per km
@@ -77,7 +79,7 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
 
-  const { originAddress, campus, originLat, originLon } = parsed.data;
+  const { originAddress, campus, originLat, originLon, campusLat, campusLon } = parsed.data;
 
   const getEnv = (name: string) => {
     const value = process.env[name];
@@ -116,7 +118,7 @@ export default async function handler(req: any, res: any) {
   let isEstimate = false;
 
   try {
-    const route = await distanceToCampusKm(originAddress, campus, originLat, originLon);
+    const route = await distanceToCampusKm(originAddress, campus, originLat, originLon, campusLat, campusLon);
     distanceKm = route.distanceKm;
     console.log(`📍 Weekly fare: ${originAddress} → ${campus}`, {
       origin: route.origin,

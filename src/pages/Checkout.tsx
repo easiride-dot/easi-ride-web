@@ -131,7 +131,7 @@ const Checkout = () => {
     const delay = !originLat || !originLon ? 600 : 0;
     const timer = setTimeout(fetchFare, delay);
     return () => clearTimeout(timer);
-  }, [pickup, campus, originLat, originLon, user]);
+  }, [pickup, campus, originLat, originLon, user, colleges]);
 
   const handlePay = async () => {
     if (!user) {
@@ -149,6 +149,10 @@ const Checkout = () => {
       return;
     }
 
+    const selectedCollege = colleges.find((c) => c.name === campus);
+    const campusLat = selectedCollege?.lat;
+    const campusLon = selectedCollege?.lon;
+
     setBusy(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -164,7 +168,9 @@ const Checkout = () => {
           originAddress: pickup.trim(),
           campus,
           originLat,
-          originLon
+          originLon,
+          campusLat,
+          campusLon
         }),
       });
 
