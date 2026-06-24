@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   MapPin, Navigation, Clock, ArrowRight, Locate, ArrowLeft,
@@ -13,17 +13,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useColleges } from "@/hooks/useColleges";
 import { ShieldAlert } from "lucide-react";
 import { parseApiJson } from "@/lib/parseApiResponse";
 // import { MapDisplay } from "@/components/MapDisplay"; // Map removed
-
-const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
-
-const CAMPUS_COORDS: Record<string, { lat: number; lon: number }> = {
-  "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
-  "IPAM Tower Hill": { lat: 8.484611, lon: -13.230917 },
-  "Limkokwing": { lat: 8.451639, lon: -13.238417 },
-};
 
 interface FareResult {
   distanceKm: number;
@@ -43,7 +36,7 @@ const TripBooking = () => {
   const [originLat, setOriginLat] = useState<number | undefined>(undefined);
   const [originLon, setOriginLon] = useState<number | undefined>(undefined);
   
-  const [campus, setCampus] = useState(CAMPUSES[0]);
+  const [campus, setCampus] = useState("");
   const [timeSlot, setTimeSlot] = useState("08:00");
   const [fare, setFare] = useState<FareResult | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -52,6 +45,14 @@ const TripBooking = () => {
   const [pickupDetails, setPickupDetails] = useState("");
   const [rideType, setRideType] = useState<"solo" | "shared">("solo");
 // const [showMap, setShowMap] = useState(false); // Map overlay removed
+
+  const { colleges, loading: collegesLoading } = useColleges();
+
+  useEffect(() => {
+    if (colleges.length > 0 && !campus) {
+      setCampus(colleges[0].name);
+    }
+  }, [colleges, campus]);
 
   const isVerified = profile?.verification_status === "approved";
 
@@ -290,9 +291,10 @@ const TripBooking = () => {
                         value={campus}
                         onChange={(e) => { setCampus(e.target.value); setFare(null); }}
                         className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                        disabled={collegesLoading}
                       >
-                        {CAMPUSES.map((c) => (
-                          <option key={c} value={c} className="bg-background">{c}</option>
+                        {colleges.map((c) => (
+                          <option key={c.id} value={c.name} className="bg-background">{c.name}</option>
                         ))}
                       </select>
                     </div>
@@ -311,9 +313,10 @@ const TripBooking = () => {
                         value={campus}
                         onChange={(e) => { setCampus(e.target.value); setFare(null); }}
                         className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                        disabled={collegesLoading}
                       >
-                        {CAMPUSES.map((c) => (
-                          <option key={c} value={c} className="bg-background">{c}</option>
+                        {colleges.map((c) => (
+                          <option key={c.id} value={c.name} className="bg-background">{c.name}</option>
                         ))}
                       </select>
                     </div>

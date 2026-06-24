@@ -7,12 +7,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useColleges } from "@/hooks/useColleges";
 import { ShieldAlert } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { LocationAutocomplete } from "@/components/LocationAutocomplete";
 import { parseApiJson } from "@/lib/parseApiResponse";
-
-const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -23,7 +22,15 @@ const Checkout = () => {
   const [pickup, setPickup] = useState("");
   const [originLat, setOriginLat] = useState<number | undefined>(undefined);
   const [originLon, setOriginLon] = useState<number | undefined>(undefined);
-  const [campus, setCampus] = useState(CAMPUSES[0]);
+  const [campus, setCampus] = useState("");
+
+  const { colleges, loading: collegesLoading } = useColleges();
+
+  useEffect(() => {
+    if (colleges.length > 0 && !campus) {
+      setCampus(colleges[0].name);
+    }
+  }, [colleges, campus]);
   const [weeklyPrice, setWeeklyPrice] = useState<number | null>(null);
   const [loadingFare, setLoadingFare] = useState(false);
 
@@ -248,9 +255,10 @@ const Checkout = () => {
                       value={campus}
                       onChange={(e) => { setCampus(e.target.value); setWeeklyPrice(null); }}
                       className="mt-0.5 h-8 w-full bg-transparent text-sm font-medium outline-none"
+                      disabled={collegesLoading}
                     >
-                      {CAMPUSES.map((c) => (
-                        <option key={c} value={c} className="bg-background">{c}</option>
+                      {colleges.map((c) => (
+                        <option key={c.id} value={c.name} className="bg-background">{c.name}</option>
                       ))}
                     </select>
                   </div>

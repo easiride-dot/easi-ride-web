@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Navigation, Clock, Users, User, ArrowRight, Locate, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,9 @@ import { Label } from "@/components/ui/label";
 import { useRides, RideType } from "@/context/RideContext";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useProfile } from "@/hooks/useProfile";
+import { useColleges } from "@/hooks/useColleges";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
-
-const CAMPUSES = ["Fourah Bay College", "IPAM Tower Hill", "Limkokwing"];
 
 const Request = () => {
   const navigate = useNavigate();
@@ -19,11 +18,19 @@ const Request = () => {
   const { profile, loading: profileLoading } = useProfile();
 
   const [pickup, setPickup] = useState("");
-  const [destination, setDestination] = useState(CAMPUSES[0]);
+  const [destination, setDestination] = useState("");
   const [timeSlot, setTimeSlot] = useState("08:00");
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [pickupDetails, setPickupDetails] = useState("");
   const [rideType, setRideType] = useState<RideType>("solo");
+
+  const { colleges, loading: collegesLoading } = useColleges();
+
+  useEffect(() => {
+    if (colleges.length > 0 && !destination) {
+      setDestination(colleges[0].name);
+    }
+  }, [colleges, destination]);
 
   const detect = () => {
     setPickup("Wilkinson Road, near junction");
@@ -177,9 +184,10 @@ const Request = () => {
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                    disabled={collegesLoading}
                   >
-                    {CAMPUSES.map((c) => (
-                      <option key={c} value={c} className="bg-background">{c}</option>
+                    {colleges.map((c) => (
+                      <option key={c.id} value={c.name} className="bg-background">{c.name}</option>
                     ))}
                   </select>
                 </div>
@@ -198,9 +206,10 @@ const Request = () => {
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     className="mt-0.5 h-8 w-full bg-transparent text-base outline-none"
+                    disabled={collegesLoading}
                   >
-                    {CAMPUSES.map((c) => (
-                      <option key={c} value={c} className="bg-background">{c}</option>
+                    {colleges.map((c) => (
+                      <option key={c.id} value={c.name} className="bg-background">{c.name}</option>
                     ))}
                   </select>
                 </div>
