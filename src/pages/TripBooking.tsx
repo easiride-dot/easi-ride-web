@@ -107,6 +107,15 @@ const TripBooking = () => {
     }
     setCalculating(true);
     setFare(null);
+
+    const selectedCollege = colleges.find((c) => c.name === campus);
+    const campusLat = selectedCollege?.lat;
+    const campusLon = selectedCollege?.lon;
+
+    // For return trip, the college is the pickup — use its coords as origin
+    const effectiveOriginLat = isReturnTrip ? campusLat : originLat;
+    const effectiveOriginLon = isReturnTrip ? campusLon : originLon;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -118,10 +127,12 @@ const TripBooking = () => {
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
-          originAddress: pickup.trim(),
+          originAddress: isReturnTrip ? campus : pickup.trim(),
           campus,
-          originLat,
-          originLon,
+          originLat: effectiveOriginLat,
+          originLon: effectiveOriginLon,
+          campusLat,
+          campusLon,
           rideType,
           passengerCount: rideType === "shared" ? 3 : 1,
         }),

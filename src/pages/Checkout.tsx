@@ -92,6 +92,11 @@ const Checkout = () => {
     const fetchFare = async () => {
       setLoadingFare(true);
       setWeeklyPrice(null);
+
+      const selectedCollege = colleges.find((c) => c.name === campus);
+      const campusLat = selectedCollege?.lat;
+      const campusLon = selectedCollege?.lon;
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const response = await fetch("/api/get-weekly-fare", {
@@ -104,7 +109,9 @@ const Checkout = () => {
             originAddress: pickup.trim(), 
             campus,
             originLat,
-            originLon 
+            originLon,
+            campusLat,
+            campusLon,
           }),
         });
         const result = await response.json().catch(() => null);
