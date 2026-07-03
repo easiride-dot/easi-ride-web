@@ -27,6 +27,7 @@ export interface Ride {
   paymentStatus: "pending" | "paid" | "failed";
   distanceKm?: number;
   fareAmount?: number;
+  driverId?: string;
 }
 
 interface RideContextValue {
@@ -59,6 +60,7 @@ type RideRow = {
   payment_status: string | null;
   distance_km: number | null;
   fare_amount: number | null;
+  driver_id: string | null;
 };
 
 const mapRow = (r: RideRow): Ride => ({
@@ -79,6 +81,7 @@ const mapRow = (r: RideRow): Ride => ({
   paymentStatus: (r.payment_status ?? "paid") as "pending" | "paid" | "failed",
   distanceKm: r.distance_km ?? undefined,
   fareAmount: r.fare_amount ?? undefined,
+  driverId: r.driver_id ?? undefined,
 });
 
 export const RideProvider = ({ children }: { children: ReactNode }) => {

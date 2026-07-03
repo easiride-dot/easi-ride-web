@@ -6,6 +6,8 @@ import { Phone, MessageCircle, Check, MapPin, Navigation, LucideIcon, Loader2, S
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { MapDisplay } from "@/components/MapDisplay";
+import { useDriverLocation } from "@/hooks/useDriverLocation";
 
 const Matching = () => {
   const { id } = useParams();
@@ -14,6 +16,8 @@ const Matching = () => {
   const { user } = useAuth();
   const ride = rides.find((r) => r.id === id);
   const [paying, setPaying] = useState(false);
+  
+  const driverLocation = useDriverLocation(ride?.driverId);
 
   const handlePayForTrip = async () => {
     if (!ride) return;
@@ -108,16 +112,22 @@ const Matching = () => {
               ? "Share your invite link so your friend can confirm their seat before we dispatch a driver."
               : "Hang tight. We're matching you with the closest verified keke headed your way."}
           </p>
+
+
         </div>
       )}
 
       {(isAssigned || isDispatched) && (
         <>
-          <div className="flex items-center gap-3 rounded-full border border-hairline bg-secondary/30 px-4 py-2 text-sm">
+          <div className="flex items-center gap-3 rounded-full border border-hairline bg-secondary/30 px-4 py-2 text-sm mb-4">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
               <Check className="h-3.5 w-3.5" />
             </span>
             {isAssigned ? `Driver assigned - Arriving in ${ride.etaMinutes || "?"} min` : "Paid and dispatched"}
+          </div>
+
+          <div className="mb-4">
+            <MapDisplay driverLocation={driverLocation} isDraggable={false} />
           </div>
 
           <div className="glass-card overflow-hidden rounded-3xl shadow-elevated">

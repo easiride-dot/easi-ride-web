@@ -42,6 +42,27 @@ const campusIcon = L.divIcon({
   iconAnchor: [24, 24],
 });
 
+const getDriverIcon = (heading: number | null) => {
+  const rotation = heading ?? 0;
+  return L.divIcon({
+    className: "custom-driver-marker",
+    html: `
+      <div style="transform: rotate(${rotation}deg); transition: transform 0.3s ease;" class="relative flex items-center justify-center h-12 w-12 drop-shadow-xl z-50">
+        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 border-2 border-background shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-white">
+            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
+            <circle cx="7" cy="17" r="2"/>
+            <path d="M9 17h6"/>
+            <circle cx="17" cy="17" r="2"/>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [48, 48],
+    iconAnchor: [24, 24],
+  });
+};
+
 interface MapDisplayProps {
   pickupLat?: number;
   pickupLon?: number;
@@ -50,28 +71,30 @@ interface MapDisplayProps {
   campusName?: string;
   onPickupSelect?: (address: string, lat: number, lon: number) => void;
   isDraggable?: boolean;
+  driverLocation?: { latitude: number; longitude: number; heading: number | null } | null;
 }
 
 // Inner helper component to auto-fit and animate zoom to fit coordinates
 const MapAutoFitter = ({
   pickupCoords,
   campusCoords,
+  driverCoords,
 }: {
   pickupCoords?: [number, number];
   campusCoords?: [number, number];
+  driverCoords?: [number, number];
 }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (pickupCoords && campusCoords) {
-      const bounds = L.latLngBounds([pickupCoords, campusCoords]);
+    const coords = [pickupCoords, campusCoords, driverCoords].filter(Boolean) as [number, number][];
+    if (coords.length > 1) {
+      const bounds = L.latLngBounds(coords);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-    } else if (pickupCoords) {
-      map.setView(pickupCoords, 15);
-    } else if (campusCoords) {
-      map.setView(campusCoords, 15);
+    } else if (coords.length === 1) {
+      map.setView(coords[0], 15);
     }
-  }, [pickupCoords, campusCoords, map]);
+  }, [pickupCoords, campusCoords, driverCoords, map]);
 
   return null;
 };
@@ -98,6 +121,7 @@ export function MapDisplay({
   campusName,
   onPickupSelect,
   isDraggable = true,
+  driverLocation,
 }: MapDisplayProps) {
   const [routePolyline, setRoutePolyline] = useState<[number, number][]>([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -110,6 +134,10 @@ export function MapDisplay({
   const campusCoords = useMemo<[number, number] | undefined>(() => {
     return campusLat != null && campusLon != null ? [campusLat, campusLon] : undefined;
   }, [campusLat, campusLon]);
+
+  const driverCoords = useMemo<[number, number] | undefined>(() => {
+    return driverLocation ? [driverLocation.latitude, driverLocation.longitude] : undefined;
+  }, [driverLocation]);
 
   // Fetch route geometries via OSRM public API on the frontend
   useEffect(() => {
@@ -217,7 +245,7 @@ export function MapDisplay({
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
 
-        <MapAutoFitter pickupCoords={pickupCoords} campusCoords={campusCoords} />
+        <MapAutoFitter pickupCoords={pickupCoords} campusCoords={campusCoords} driverCoords={driverCoords} />
         
         {onPickupSelect && <MapClickHandler onMapClick={handleMapClick} />}
 
@@ -239,6 +267,14 @@ export function MapDisplay({
           <Marker
             position={campusCoords}
             icon={campusIcon}
+          />
+        )}
+
+        {/* Driver Marker */}
+        {driverCoords && (
+          <Marker
+            position={driverCoords}
+            icon={getDriverIcon(driverLocation?.heading ?? null)}
           />
         )}
 
