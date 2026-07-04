@@ -33,58 +33,6 @@ const checkoutSchema = z.discriminatedUnion("paymentType", [
 ]);
 
 const WEEKLY_MULTIPLIER = 6;
-const TRIP_BASE_RATE = 7;
-const TRIP_MIN_FARE = 25;
-const TRIP_MIN_DISTANCE_KM = 5;
-
-// Mock distances for placeholder mode (mirrors calculate-trip-fare.ts)
-const MOCK_DISTANCES: Record<string, Record<string, number>> = {
-  lumley:       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
-  aberdeen:     { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8  },
-  model:        { "Fourah Bay College": 11.0, "IPAM Tower Hill": 9.2,  "Njala University": 178, "Limkokwing": 8.5  },
-  wilberforce:  { "Fourah Bay College": 10.0, "IPAM Tower Hill": 5.0,  "Njala University": 176, "Limkokwing": 7.0  },
-  "congo cross":{ "Fourah Bay College": 8.5,  "IPAM Tower Hill": 6.2,  "Njala University": 174, "Limkokwing": 6.0  },
-  "murray town":{ "Fourah Bay College": 9.0,  "IPAM Tower Hill": 7.0,  "Njala University": 175, "Limkokwing": 7.5  },
-};
-const DEFAULT_KM = 9;
-
-const getMockDistance = (origin: string, campus: string) => {
-  const key = origin.toLowerCase().trim();
-  for (const [area, campuses] of Object.entries(MOCK_DISTANCES)) {
-    if (key.includes(area) && campuses[campus] !== undefined) return campuses[campus];
-  }
-  return DEFAULT_KM;
-};
-
-const getTripFare = async (
-  originAddress: string,
-  campus: string,
-  rideType: "solo" | "shared",
-  passengerCount: number,
-  supabase: any,
-  lat?: number,
-  lon?: number,
-  campusLat?: number,
-  campusLon?: number
-): Promise<number> => {
-  let distanceKm: number;
-
-  try {
-    const route = await distanceToCampusKm(originAddress, campus, lat, lon, campusLat, campusLon);
-    distanceKm = route.distanceKm;
-    console.log(`📍 Monime checkout fare: ${originAddress} → ${campus}`, {
-      origin: route.origin,
-      campus: route.campusPoint,
-      geocoded: route.geocoded,
-      distanceKm,
-    });
-  } catch {
-    distanceKm = getMockDistance(originAddress, campus);
-  }
-
-  const pricing = await calculatePricing(distanceKm, rideType, passengerCount, supabase);
-  return pricing.gross;
-};
 
 const getEnv = (name: string) => {
   const value = process.env[name];
@@ -206,8 +154,22 @@ export default async function handler(req: any, res: any) {
         return res.status(409).json({ error: "You already have an active subscription" });
       }
       // Server-side price calculation — client cannot manipulate this
-      const singleFare = await getTripFare(payload.originAddress, payload.campus, "solo", 1, supabase, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
-      amount = singleFare * WEEKLY_MULTIPLIER;
+      let weeklyDistanceKm: number;
+      try {
+        const weeklyRoute = await distanceToCampusKm(payload.originAddress, payload.campus, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
+        weeklyDistanceKm = weeklyRoute.distanceKm;
+      } catch {
+        weeklyDistanceKm = 9;
+      }
+
+      const { data: weeklyCfg } = await supabase
+        .from("pricing_config")
+        .select("per_km_rate")
+        .limit(1)
+        .maybeSingle();
+      const weeklyRate = weeklyCfg?.per_km_rate ?? 7;
+
+      amount = Math.ceil(weeklyDistanceKm * WEEKLY_MULTIPLIER * Number(weeklyRate));
       pickupArea = payload.originAddress;
       campus = payload.campus;
       planTitle = "Easi Ride Weekly Plan";
@@ -228,7 +190,18 @@ export default async function handler(req: any, res: any) {
           rideType = ride.type || "solo";
         }
       }
-      amount = dbPrice ?? await getTripFare(payload.originAddress, payload.campus, rideType, passengerCount, supabase, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
+      amount = dbPrice;
+      if (amount === null) {
+        let tripDistanceKm: number;
+        try {
+          const tripRoute = await distanceToCampusKm(payload.originAddress, payload.campus, payload.originLat, payload.originLon, payload.campusLat, payload.campusLon);
+          tripDistanceKm = tripRoute.distanceKm;
+        } catch {
+          tripDistanceKm = 9;
+        }
+        const pricing = await calculatePricing(tripDistanceKm, rideType, passengerCount, supabase);
+        amount = pricing.gross;
+      }
 
       // For shared rides, divide by 3 (creator + 2 friends)
       if (rideType === "shared") {

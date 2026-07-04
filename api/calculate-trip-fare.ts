@@ -23,6 +23,22 @@ const getAuthToken = (authorization?: string | string[]) => {
   return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 };
 
+export async function calculatePricing(
+  distanceKm: number,
+  rideType: "solo" | "shared",
+  passengerCount: number,
+  supabaseAdmin: any
+): Promise<{ gross: number; commission: number; driverNet: number }> {
+  const { fare } = await calculateFare(distanceKm, supabaseAdmin);
+  let gross = fare;
+  if (rideType === "shared") {
+    gross = gross * passengerCount;
+  }
+  const commission = 0;
+  const driverNet = gross - commission;
+  return { gross, commission, driverNet };
+}
+
 async function calculateFare(
   distanceKm: number,
   supabaseAdmin: any
