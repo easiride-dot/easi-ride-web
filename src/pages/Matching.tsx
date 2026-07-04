@@ -62,7 +62,7 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const waitingForDriver = ride.status === "pool_locked_awaiting_driver";
+  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance";
   const isAssigned = ride.status === "driver_assigned";
   const isDispatched = ride.status === "paid_and_dispatched";
   const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
