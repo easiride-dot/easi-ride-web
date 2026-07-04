@@ -23,100 +23,38 @@ const getAuthToken = (authorization?: string | string[]) => {
   return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 };
 
-// Pricing engine function helper
-export async function calculatePricing(distanceKm: number, rideType: "solo" | "shared", passengerCount: number, supabase: any) {
-  let gross = 0;
-  let commission = 0;
-  let driverNet = 0;
+async function calculateFare(
+  distanceKm: number,
+  supabaseAdmin: any
+): Promise<{ fare: number; surgeMode: string; surgeMultiplier: number }> {
+  const { data: config, error } = await supabaseAdmin
+    .from("pricing_config")
+    .select("base_fare, per_km_rate, surge_mode, surge_normal, surge_peak, surge_rain")
+    .limit(1)
+    .maybeSingle();
 
-  // Determine distance bracket
-  let distanceBracket: "short" | "medium" | "long";
-  if (distanceKm < 5.0) {
-    distanceBracket = "short";
-  } else if (distanceKm < 10.0) {
-    distanceBracket = "medium";
-  } else {
-    distanceBracket = "long";
+  if (error || !config) {
+    const fallback = Math.ceil(7 + distanceKm * 7);
+    return { fare: fallback, surgeMode: "normal", surgeMultiplier: 1 };
   }
 
-  // Fetch pricing from database
-  try {
-    const { data: pricingData, error } = await supabase
-      .from("pricing_config" as any)
-      .select("gross_fare, commission")
-      .eq("distance_bracket", distanceBracket)
-      .eq("ride_type", rideType)
-      .single();
+  const surgeMultiplier =
+    config.surge_mode === "rain" ? Number(config.surge_rain) :
+    config.surge_mode === "peak" ? Number(config.surge_peak) :
+    Number(config.surge_normal);
 
-    if (error || !pricingData) {
-      // Fallback to hardcoded values if database fetch fails
-      console.error("Error fetching pricing from database, using fallback:", error);
-      return calculatePricingFallback(distanceKm, rideType, passengerCount);
-    }
+  const rawFare = (Number(config.base_fare) + distanceKm * Number(config.per_km_rate)) * surgeMultiplier;
 
-    gross = pricingData.gross_fare;
-    commission = gross * (pricingData.commission / 100);
-
-    if (rideType === "shared") {
-      gross = gross * passengerCount;
-      commission = commission * passengerCount;
-    }
-
-    driverNet = gross - commission;
-  } catch (err) {
-    // Fallback to hardcoded values on any error
-    console.error("Error in pricing calculation, using fallback:", err);
-    return calculatePricingFallback(distanceKm, rideType, passengerCount);
-  }
-
-  return { gross, commission, driverNet };
-}
-
-// Fallback pricing function with hardcoded values
-function calculatePricingFallback(distanceKm: number, rideType: "solo" | "shared", passengerCount: number) {
-  let gross = 0;
-  let commission = 0;
-  let driverNet = 0;
-
-  if (distanceKm < 5.0) {
-    if (rideType === "solo") {
-      gross = 25.0;
-      commission = gross * 0.20; // 20%
-      driverNet = gross - commission;
-    } else {
-      gross = 15.0 * passengerCount;
-      commission = gross * 0.20; // 20%
-      driverNet = gross - commission;
-    }
-  } else if (distanceKm < 10.0) {
-    if (rideType === "solo") {
-      gross = 55.0;
-      commission = gross * 0.20; // 20%
-      driverNet = gross - commission;
-    } else {
-      gross = 25.0 * passengerCount;
-      commission = gross * 0.20; // 20%
-      driverNet = gross - commission;
-    }
-  } else {
-    if (rideType === "solo") {
-      gross = 85.0;
-      commission = gross * 0.10; // 10%
-      driverNet = gross - commission;
-    } else {
-      gross = 45.0 * passengerCount;
-      commission = gross * 0.20; // 20%
-      driverNet = gross - commission;
-    }
-  }
-
-  return { gross, commission, driverNet };
+  return {
+    fare: Math.ceil(rawFare),
+    surgeMode: config.surge_mode,
+    surgeMultiplier,
+  };
 }
 
 // ============================================================
 // PLACEHOLDER: Approximate road distances (km) from known
 // Freetown pickup areas to each campus.
-// Fallback when OSM geocoding/routing is unavailable.
 // ============================================================
 const MOCK_DISTANCES: Record<string, Record<string, number>> = {
   "lumley":       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
@@ -131,7 +69,7 @@ const MOCK_DISTANCES: Record<string, Record<string, number>> = {
   "central":      { "Fourah Bay College": 8.0,  "IPAM Tower Hill": 4.0,  "Njala University": 174, "Limkokwing": 6.0  },
 };
 
-const DEFAULT_DISTANCE_KM = 9; // fallback for unknown pickup areas
+const DEFAULT_DISTANCE_KM = 9;
 
 const getMockDistance = (origin: string, campus: string): number => {
   const key = origin.toLowerCase().trim();
@@ -148,7 +86,6 @@ const getMockDistance = (origin: string, campus: string): number => {
 };
 
 export default async function handler(req: any, res: any) {
-  // Reject oversized payloads (> 10KB)
   const contentLength = req.headers['content-length'];
   if (contentLength && parseInt(contentLength, 10) > 10240) {
     return res.status(413).json({ error: "Payload too large" });
@@ -167,11 +104,7 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  const getEnv = (name: string) => {
-    const value = process.env[name];
-    if (!value) return "";
-    return value;
-  };
+  const getEnv = (name: string) => process.env[name] ?? "";
 
   const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
   const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
@@ -189,7 +122,6 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: "Authentication failed" });
   }
 
-  // Rate limiting: max 30 requests per minute
   if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 30 }, user.id)) {
     return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
@@ -205,16 +137,15 @@ export default async function handler(req: any, res: any) {
 
   let distanceKm = 0;
   let isEstimate = false;
-  let originCoords: { lat: number; lon: number } | undefined = undefined;
-  let campusCoords: { lat: number; lon: number } | undefined = undefined;
+  let originCoords: { lat: number; lon: number } | undefined;
+  let campusCoords: { lat: number; lon: number } | undefined;
 
   try {
     const route = await distanceToCampusKm(originAddress, campus, originLat, originLon, campusLat, campusLon);
     distanceKm = route.distanceKm;
     originCoords = route.origin;
     campusCoords = route.campusPoint;
-  } catch (err) {
-    // Log error without exposing details
+  } catch {
     distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
     if (originLat !== undefined && originLon !== undefined) {
@@ -232,13 +163,19 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  const pricing = await calculatePricing(distanceKm, rideType, passengerCount, supabase);
+  // Create admin client for reading pricing_config (bypass RLS)
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAdmin = serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey)
+    : supabase;
+
+  const { fare, surgeMode, surgeMultiplier } = await calculateFare(distanceKm, supabaseAdmin);
 
   return res.status(200).json({
     distanceKm: Number(distanceKm.toFixed(1)),
-    fareAmount: pricing.gross,
-    commission: pricing.commission,
-    driverNet: pricing.driverNet,
+    fareAmount: fare,
+    surgeMode,
+    surgeMultiplier,
     isEstimate,
     originCoords,
     campusCoords,
