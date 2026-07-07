@@ -1,4 +1,4 @@
-export const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-gl-style/style.json";
+export const DARK_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 export const MAP_CONFIG = {
   defaultZoom: 15,

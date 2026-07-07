@@ -3,7 +3,7 @@ import { useMap } from "react-map-gl/maplibre";
 import { Plus, Minus, Compass, Crosshair } from "lucide-react";
 
 export function MapControls() {
-  const map = useMap();
+  const { current: map } = useMap();
   const [bearing, setBearing] = useState(0);
 
   const handleZoomIn = useCallback(() => {

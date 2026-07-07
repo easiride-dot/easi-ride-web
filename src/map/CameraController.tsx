@@ -18,7 +18,7 @@ export function CameraController({
   fitPoints,
   padding = 60,
 }: CameraControllerProps) {
-  const map = useMap();
+  const { current: map } = useMap();
 
   useEffect(() => {
     if (!map) return;
