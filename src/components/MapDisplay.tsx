@@ -126,7 +126,7 @@ export function MapDisplay({
   }, [isDraggable, handleCoordsChange]);
 
   return (
-    <div className="relative glass-card rounded-2xl overflow-hidden shadow-elevated border border-hairline/60 h-[280px] w-full z-10 animate-fade-up">
+    <div className="relative glass-card rounded-2xl overflow-hidden shadow-elevated border border-hairline/60 h-[400px] w-full z-10 animate-fade-up">
       {loadingRoute && (
         <div className="absolute top-3 right-3 z-[1000] bg-background/80 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-hairline flex items-center gap-1.5 text-xs text-muted-foreground shadow-sm">
           <Loader2 className="h-3 w-3 animate-spin text-primary" />

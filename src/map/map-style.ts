@@ -21,9 +21,9 @@ export const routeLayerStyle = {
     "line-join": "round" as const,
   },
   paint: {
-    "line-color": "#ffffff",
+    "line-color": "#3b82f6",
     "line-width": 6,
     "line-opacity": 0.85,
-    "line-blur": 2,
+    "line-blur": 0,
   },
 };

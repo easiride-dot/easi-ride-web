@@ -86,13 +86,27 @@ const Matching = () => {
               <p className="text-xs text-muted-foreground mt-1">Complete your payment to confirm your spot in the shared ride.</p>
             </div>
           </div>
-          <div className="mb-4 p-4 rounded-xl bg-secondary/20">
-            <p className="text-xs text-muted-foreground mb-1">Your share (1/3 of total fare)</p>
-            <p className="font-display text-3xl font-semibold">{userShare} NLe</p>
-          </div>
-          <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12">
-            {paying ? <Loader2 className="animate-spin" /> : `Pay ${userShare} NLe`}
-          </Button>
+          <button
+            onClick={handlePayForTrip}
+            disabled={paying}
+            className="w-full rounded-2xl bg-background border border-hairline p-4 hover:bg-secondary/50 transition-colors text-left disabled:opacity-50"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1">Your share (1/3 of total fare)</span>
+                <span className="font-display text-2xl font-bold text-foreground">
+                  {userShare} NLe
+                </span>
+              </div>
+              <div className="text-right">
+                {paying ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="text-sm font-semibold text-foreground">Pay now</span>
+                )}
+              </div>
+            </div>
+          </button>
         </div>
       )}
 
@@ -147,9 +161,27 @@ const Matching = () => {
                   <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-300">Driver is waiting! Pay {isShared ? userShare : ride.price} NLe to confirm.</p>
                 </div>
-                <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12 bg-amber-500">
-                  {paying ? <Loader2 className="animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
-                </Button>
+                <button
+                  onClick={handlePayForTrip}
+                  disabled={paying}
+                  className="w-full rounded-2xl bg-background border border-hairline p-4 hover:bg-secondary/50 transition-colors text-left disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-1">Trip fare</span>
+                      <span className="font-display text-2xl font-bold text-foreground">
+                        {isShared ? userShare : ride.price} NLe
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      {paying ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <span className="text-sm font-semibold text-foreground">Pay now</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
               </div>
             )}
 
