@@ -1,7 +1,6 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { Logo } from "./Logo";
-import { Home, CalendarClock, User, Sun, Moon } from "lucide-react";
-import { useTheme } from "@/hooks/useTheme";
+import { Home, CalendarClock, User } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", icon: Home, label: "Home" },
@@ -10,23 +9,11 @@ const navItems = [
 ];
 
 export const AppShell = () => {
-  const { theme, toggleTheme } = useTheme();
-
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-30 border-b border-hairline/60 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-14 items-center justify-between">
           <Logo />
-          <button
-            onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
-          </button>
         </div>
       </header>
       <main className="container max-w-2xl py-6">
