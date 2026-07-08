@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, MapPin, Navigation, LucideIcon, Loader2, Share2, Users } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, LucideIcon, Loader2, Share2, Users, ArrowLeft, Clock, CheckCircle, MessageSquareWarning } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { Drawer } from "vaul";
+import { cn } from "@/lib/utils";
 
 const Matching = () => {
   const { id } = useParams();
@@ -74,6 +75,21 @@ const Matching = () => {
   const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
   const userShare = Math.round((ride.fareAmount || ride.price) / 3);
 
+  const STUDENT_STATUS_CONFIG: Record<string, { label: string; sublabel: string; color: string; bgColor: string }> = {
+    driver_assigned: {
+      label: "Driver Assigned",
+      sublabel: "Your driver is on the way",
+      color: "text-blue-400", bgColor: "bg-blue-500/15",
+    },
+    paid_and_dispatched: {
+      label: "On Your Way",
+      sublabel: "Enjoy your ride!",
+      color: "text-emerald-400", bgColor: "bg-emerald-500/15",
+    },
+  };
+
+  const statusCfg = STUDENT_STATUS_CONFIG[ride.status] ?? STUDENT_STATUS_CONFIG.driver_assigned;
+
   // Friend payment / waiting states — unchanged
   if (friendNeedsToPay) {
     return (
@@ -118,113 +134,143 @@ const Matching = () => {
     );
   }
 
+  const [snap, setSnap] = useState<number | string | null>(0.85);
+
   if (isAssigned || isDispatched) {
     return (
-      <div className="relative w-full h-[100dvh] overflow-hidden">
-        <MapDisplay driverLocation={driverLocation} isDraggable={false} interactive={false} />
+      <div className="relative h-[100dvh] bg-black overflow-hidden">
+        <MapDisplay driverLocation={driverLocation} isDraggable={false} interactive />
 
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="absolute top-14 left-4 z-20 flex items-center justify-center h-9 w-9 rounded-full bg-background/80 backdrop-blur-md shadow"
-        >
-          <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
+        {/* Top gradient overlay */}
+        <div className="absolute top-0 left-0 right-0 z-20 pt-12 pb-4 px-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="pointer-events-auto flex items-center justify-center h-10 w-10 rounded-full bg-background/80 backdrop-blur-md border border-hairline/50 shadow-elevated"
+          >
+            <ArrowLeft className="h-5 w-5 text-foreground" />
+          </button>
+        </div>
 
-        <Drawer.Root snapPoints={[0.15, 0.35, 0.75]} defaultSnap={0.35} modal={false}>
+        <Drawer.Root snapPoints={[0.35, 0.85]} activeSnapPoint={snap} setActiveSnapPoint={setSnap} modal={false}>
           <Drawer.Portal>
             <Drawer.Content
-              className="fixed inset-x-0 bottom-0 z-10 flex flex-col bg-background rounded-t-[20px] focus:outline-none shadow-[0_-4px_20px_rgba(0,0,0,0.12)]"
-              style={{ height: "calc(100dvh - 30px)" }}
+              className="fixed bottom-0 left-0 right-0 z-30 flex flex-col rounded-t-3xl bg-[#1A1A1A] border-t border-hairline outline-none max-h-[85dvh]"
+              style={{ boxShadow: "0 -8px 30px rgba(0,0,0,0.3)" }}
             >
-              {/* Scrollable expanded content — top of flex, hidden at collapsed snap */}
-              <div className="flex-1 overflow-y-auto px-5 pt-8">
+              <div className="mx-auto mt-3 mb-2 h-1.5 w-12 rounded-full bg-border flex-shrink-0" />
+
+              <div className="flex-1 overflow-y-auto px-5 pb-8 space-y-4">
+                {/* Status banner */}
+                <div className={cn("flex items-center gap-3 rounded-2xl px-4 py-3", statusCfg.bgColor)}>
+                  <div className={cn("flex-shrink-0", statusCfg.color)}>
+                    {isDispatched ? (
+                      <Navigation className="h-5 w-5 animate-pulse" />
+                    ) : (
+                      <MapPin className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={cn("text-sm font-semibold", statusCfg.color)}>{statusCfg.label}</p>
+                    <p className="text-xs text-muted-foreground">{statusCfg.sublabel}</p>
+                  </div>
+                  {!requiresPayment && (
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">ETA</p>
+                      <p className="text-sm font-bold text-foreground">{ride.etaMinutes || "?"} min</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Fare / Payment card */}
+                <div className="rounded-2xl bg-background border border-hairline p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-muted-foreground">Trip fare</span>
+                    <span className="font-display text-lg font-bold text-foreground">
+                      {ride.price != null ? `${ride.price} NLe` : "—"}
+                    </span>
+                  </div>
+                  {isShared && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Your share</span>
+                      <span className="font-semibold text-foreground">{userShare} NLe</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Call / WhatsApp */}
+                {!requiresPayment && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-background border border-hairline">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Driver</p>
+                      <p className="text-sm font-medium text-foreground">{ride.driverName || "Driver"}</p>
+                    </div>
+                    <a href={`tel:${ride.driverPhone}`}
+                      className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 hover:bg-emerald-500/30 transition-colors">
+                      <Phone className="h-4 w-4 text-emerald-400" />
+                    </a>
+                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer"
+                      className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 hover:bg-emerald-500/30 transition-colors">
+                      <MessageCircle className="h-4 w-4 text-emerald-400" />
+                    </a>
+                  </div>
+                )}
+
+                {/* Payment CTA */}
                 {requiresPayment && isAssigned && (
-                  <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4">
-                    <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">Driver is waiting! Pay to confirm your ride.</p>
-                    <button onClick={handlePayForTrip} disabled={paying} className="w-full bg-amber-500 text-white font-medium py-3.5 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2">
-                      {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
+                  <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4">
+                    <p className="text-xs text-amber-400 mb-3">Driver is waiting! Pay to confirm your ride.</p>
+                    <button onClick={handlePayForTrip} disabled={paying} className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 transition-colors text-white text-sm font-bold disabled:opacity-50">
+                      {paying ? <Loader2 className="h-5 w-5 animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
                     </button>
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex flex-col items-center gap-0.5 pt-1">
-                      <div className="w-2.5 h-2.5 rounded-full bg-foreground shrink-0" />
-                      <div className="w-0.5 h-8 bg-muted-foreground/30 shrink-0" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 shrink-0" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground">Pickup</p>
-                      <p className="text-sm font-medium text-foreground">{ride.pickup}</p>
-                      <p className="text-xs text-muted-foreground mt-3">Destination</p>
-                      <p className="text-sm font-medium text-foreground">{ride.destination}</p>
-                    </div>
+                {/* Pickup */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-background border border-hairline">
+                  <div className="mt-0.5 h-6 w-6 flex-shrink-0 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <MapPin className="h-3 w-3 text-emerald-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Pickup</p>
+                    <p className="text-xs font-medium text-foreground leading-snug line-clamp-2">{ride.pickup}</p>
                   </div>
                 </div>
 
+                {/* Destination */}
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-background border border-hairline">
+                  <div className="mt-0.5 h-6 w-6 flex-shrink-0 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <Navigation className="h-3 w-3 text-red-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Destination</p>
+                    <p className="text-xs font-medium text-foreground leading-snug line-clamp-2">{ride.destination}</p>
+                  </div>
+                </div>
+
+                {/* Share invite */}
                 {isShared && (
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
                       toast.success("Invite link copied");
                     }}
-                    className="w-full flex items-center gap-3 py-3.5 text-sm font-medium text-foreground border-t border-border"
+                    className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-background border border-hairline text-sm font-semibold text-foreground hover:bg-secondary/30 transition-colors"
                   >
                     <Share2 className="h-4 w-4 text-muted-foreground" /> Invite friends to share fare
                   </button>
                 )}
 
+                {/* Emergency */}
                 <button
                   onClick={() => window.open(`https://wa.me/23278000000?text=EMERGENCY: I need help with my Easi Ride. Ride ID: ${ride.id}`, "_blank")}
-                  className="w-full flex items-center gap-3 py-3.5 text-sm font-medium text-destructive border-t border-border"
+                  className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-destructive hover:bg-destructive/90 transition-colors shadow-[0_0_20px_rgba(239,68,68,0.3)]"
                 >
-                  Emergency / Contact Support
+                  <MessageSquareWarning className="h-5 w-5 text-white" />
+                  <span className="text-sm font-semibold text-white uppercase tracking-wider">Emergency</span>
                 </button>
-              </div>
-
-              {/* Always-visible bottom section — last in flex = visible at all snap points */}
-              <div className="shrink-0 px-5 pb-6">
-                <div className="flex justify-center pt-3 pb-4">
-                  <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
-                </div>
-
-                {!requiresPayment && (
-                  <div className="flex items-center gap-5 mb-4">
-                    <a href={`tel:${ride.driverPhone}`} className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Phone className="h-4 w-4" /> Call
-                    </a>
-                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
-                    </a>
-                  </div>
-                )}
-
-                {isAssigned ? (
-                  <p className="text-[42px] font-light text-foreground leading-none mb-1">
-                    {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min away</span>
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-foreground mb-1">On your way</p>
-                    <p className="text-[42px] font-light text-foreground leading-none mb-1">
-                      {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">{ride.destination}</p>
-                  </>
-                )}
-
-                <div className="flex items-center gap-3 mt-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-medium text-foreground shrink-0">
-                    {ride.driverName?.[0] ?? "D"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium text-foreground">{ride.driverName || "Driver"}</p>
-                    <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
-                  </div>
-                </div>
               </div>
             </Drawer.Content>
           </Drawer.Portal>
