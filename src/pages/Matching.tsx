@@ -118,118 +118,110 @@ const Matching = () => {
     );
   }
 
-  // Active ride — full-screen map + Vaul drawer
   if (isAssigned || isDispatched) {
     return (
       <div className="relative w-full h-[100dvh] overflow-hidden">
-        {/* Full-screen map */}
-        <MapDisplay driverLocation={driverLocation} isDraggable={false} />
+        <MapDisplay driverLocation={driverLocation} isDraggable={false} interactive={false} />
 
-        {/* Top gradient + back button */}
-        <div className="absolute top-0 left-0 right-0 z-20 pt-12 pb-4 px-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="pointer-events-auto flex items-center justify-center h-10 w-10 rounded-full bg-background/80 backdrop-blur-md border border-hairline/50 shadow-elevated"
-          >
-            <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="absolute top-14 left-4 z-20 flex items-center justify-center h-9 w-9 rounded-full bg-background/80 backdrop-blur-md shadow"
+        >
+          <svg className="h-5 w-5 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
 
-        {/* Status chip */}
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20">
-          <div className="bg-background/90 backdrop-blur-md border border-hairline rounded-full px-4 py-2 shadow-elevated flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-              {isAssigned ? `Driver assigned - Arriving in ${ride.etaMinutes || "?"} min` : "Paid and dispatched"}
-            </span>
-          </div>
-        </div>
-
-        {/* Vaul Drawer */}
-        <Drawer.Root snapPoints={[0.35, 0.65]} defaultSnap={0.35} modal={false}>
+        <Drawer.Root snapPoints={[0.15, 0.35, 0.75]} defaultSnap={0.35} modal={false}>
           <Drawer.Portal>
             <Drawer.Content
-              className="fixed bottom-0 left-0 right-0 z-10 bg-background rounded-t-[20px] border-t border-border focus:outline-none"
-              style={{ height: "65vh" }}
+              className="fixed bottom-0 left-0 right-0 z-10 bg-background rounded-t-[20px] focus:outline-none shadow-[0_-4px_20px_rgba(0,0,0,0.12)]"
+              style={{ height: "75vh" }}
             >
-              <div className="flex justify-center pt-3 pb-2">
-                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
               </div>
-              <div className="overflow-y-auto px-4 pb-8" style={{ maxHeight: "calc(65vh - 32px)" }}>
-                {/* Driver card */}
-                <div className="bg-card border border-border rounded-2xl p-4 mb-3">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary border font-display text-lg font-semibold text-foreground shrink-0">
-                      {ride.driverName?.[0] ?? "D"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-foreground">{ride.driverName || "Driver"}</p>
-                      <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
-                    </div>
+
+              <div className="px-5 pb-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-medium text-foreground shrink-0">
+                    {ride.driverName?.[0] ?? "D"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-medium text-foreground">{ride.driverName || "Driver"}</p>
+                    <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
                   </div>
                 </div>
 
-                {/* Payment section */}
+                {isAssigned ? (
+                  <p className="text-[42px] font-light text-foreground leading-none mb-1">
+                    {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min away</span>
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-foreground mb-1">On your way</p>
+                    <p className="text-[42px] font-light text-foreground leading-none mb-1">
+                      {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">{ride.destination}</p>
+                  </>
+                )}
+
+                {!requiresPayment && (
+                  <div className="flex items-center gap-5 mt-4">
+                    <a href={`tel:${ride.driverPhone}`} className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Phone className="h-4 w-4" /> Call
+                    </a>
+                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <hr className="border-t border-border mx-5" />
+
+              <div className="overflow-y-auto px-5 pb-8 pt-4" style={{ maxHeight: "calc(75vh - 220px)" }}>
                 {requiresPayment && isAssigned && (
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 mb-3">
-                    <p className="text-xs text-amber-300 mb-3">Driver is waiting! Pay to confirm.</p>
-                    <button
-                      onClick={handlePayForTrip}
-                      disabled={paying}
-                      className="w-full bg-amber-500 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
+                  <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4">
+                    <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">Driver is waiting! Pay to confirm your ride.</p>
+                    <button onClick={handlePayForTrip} disabled={paying} className="w-full bg-amber-500 text-white font-medium py-3.5 rounded-xl text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                       {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
                     </button>
                   </div>
                 )}
 
-                {/* Call / WhatsApp */}
-                {!requiresPayment && (isAssigned || isDispatched) && (
-                  <div className="bg-card border border-border rounded-2xl mb-3 overflow-hidden">
-                    <div className="grid grid-cols-2">
-                      <a href={`tel:${ride.driverPhone}`} className="flex items-center justify-center gap-2 py-4 text-sm font-medium text-foreground hover:bg-secondary/30 transition-colors">
-                        <Phone className="h-4 w-4" /> Call
-                      </a>
-                      <a
-                        href={`https://wa.me/${waNumber}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-center gap-2 border-l py-4 text-sm font-medium text-foreground hover:bg-secondary/30 transition-colors"
-                      >
-                        <MessageCircle className="h-4 w-4" /> WhatsApp
-                      </a>
+                <div className="mb-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex flex-col items-center gap-0.5 pt-1">
+                      <div className="w-2.5 h-2.5 rounded-full bg-foreground shrink-0" />
+                      <div className="w-0.5 h-8 bg-muted-foreground/30 shrink-0" />
+                      <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50 shrink-0" />
                     </div>
-                  </div>
-                )}
-
-                {/* Trip details */}
-                <div className="bg-card border border-border rounded-2xl p-4 mb-3">
-                  <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-3">Trip details</h3>
-                  <div className="space-y-3">
-                    <Row icon={MapPin} label="Pickup" value={ride.pickup} />
-                    <Row icon={Navigation} label="Destination" value={ride.destination} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">Pickup</p>
+                      <p className="text-sm font-medium text-foreground">{ride.pickup}</p>
+                      <p className="text-xs text-muted-foreground mt-3">Destination</p>
+                      <p className="text-sm font-medium text-foreground">{ride.destination}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Share invite */}
                 {isShared && (
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
                       toast.success("Invite link copied");
                     }}
-                    className="w-full bg-card border border-border text-foreground font-medium py-3 rounded-2xl text-sm mb-3 flex items-center justify-center gap-2"
+                    className="w-full flex items-center gap-3 py-3.5 text-sm font-medium text-foreground border-t border-border"
                   >
-                    <Share2 className="h-4 w-4" /> Invite friends
+                    <Share2 className="h-4 w-4 text-muted-foreground" /> Invite friends to share fare
                   </button>
                 )}
 
-                {/* Emergency */}
                 <button
                   onClick={() => window.open(`https://wa.me/23278000000?text=EMERGENCY: I need help with my Easi Ride. Ride ID: ${ride.id}`, "_blank")}
-                  className="w-full border border-border text-muted-foreground font-medium py-3 rounded-2xl text-sm"
+                  className="w-full flex items-center gap-3 py-3.5 text-sm font-medium text-destructive border-t border-border"
                 >
                   Emergency / Contact Support
                 </button>

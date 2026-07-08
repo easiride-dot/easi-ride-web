@@ -16,6 +16,7 @@ interface MapDisplayProps {
   onPickupSelect?: (address: string, lat: number, lon: number) => void;
   isDraggable?: boolean;
   driverLocation?: { latitude: number; longitude: number; heading: number | null } | null;
+  interactive?: boolean;
 }
 
 export function MapDisplay({
@@ -27,6 +28,7 @@ export function MapDisplay({
   onPickupSelect,
   isDraggable = true,
   driverLocation,
+  interactive = true,
 }: MapDisplayProps) {
   const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -142,9 +144,9 @@ export function MapDisplay({
           pitch: 45,
           bearing: 0,
         }}
-        scrollZoom
-        dragPan
-        onClick={(e) => handleMapClick(e.lngLat.lat, e.lngLat.lng)}
+        scrollZoom={interactive}
+        dragPan={interactive}
+        onClick={interactive ? (e) => handleMapClick(e.lngLat.lat, e.lngLat.lng) : undefined}
         style={{ width: "100%", height: "100%" }}
       >
         <CameraController fitPoints={fitPoints} padding={40} />
@@ -178,7 +180,7 @@ export function MapDisplay({
 
         {routePoints.length > 1 && <RouteLayer points={routePoints} />}
 
-        <MapControls />
+        {interactive && <MapControls />}
       </MapView>
 
       {isDraggable && !pickupCoords && (
