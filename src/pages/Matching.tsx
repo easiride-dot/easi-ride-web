@@ -73,20 +73,18 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance";
+  const waitingForDriver = ride.status === "pool_locked_awaiting_driver";
   const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived";
-  const isInProgress = ride.status === "in_progress";
   const isDispatched = ride.status === "paid_and_dispatched";
   const isCompleted = ride.status === "completed" || ride.status === "cancelled";
   const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
-  const showActiveRide = isAssigned || isInProgress || isDispatched;
-  const showMap = showActiveRide && ride.pickupLatitude != null && ride.destinationLatitude != null;
+  const showActiveRide = waitingForDriver || isAssigned || ride.status === "pending_driver_acceptance" || ride.status === "in_progress" || isDispatched;
 
-  // Waiting state — show old UI
-  if (!showMap) {
+  // Waiting states — show old spinner UI
+  if (!showActiveRide) {
     return (
       <div className="space-y-6 animate-fade-up">
-        <div className={`flex flex-col items-center justify-center text-center min-h-[70vh]`}>
+        <div className="flex flex-col items-center justify-center text-center min-h-[70vh]">
           <div className="relative flex h-24 w-24 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
             <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
