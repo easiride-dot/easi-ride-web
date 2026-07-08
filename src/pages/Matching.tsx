@@ -140,7 +140,15 @@ const Matching = () => {
   if (isAssigned || isDispatched) {
     return (
       <div className="relative h-[100dvh] bg-black overflow-hidden">
-        <MapDisplay driverLocation={driverLocation} isDraggable={false} interactive />
+        <MapDisplay
+          driverLocation={driverLocation}
+          isDraggable={false}
+          interactive
+          pickupLat={ride.pickupLatitude}
+          pickupLon={ride.pickupLongitude}
+          campusLat={ride.destinationLatitude}
+          campusLon={ride.destinationLongitude}
+        />
 
         {/* Top gradient overlay */}
         <div className="absolute top-0 left-0 right-0 z-20 pt-12 pb-4 px-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
@@ -208,6 +216,9 @@ const Matching = () => {
                     <div className="min-w-0 flex-1">
                       <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Driver</p>
                       <p className="text-sm font-medium text-foreground">{ride.driverName || "Driver"}</p>
+                      {ride.vehicle && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{ride.vehicle}</p>
+                      )}
                     </div>
                     <a href={`tel:${ride.driverPhone}`}
                       className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 hover:bg-emerald-500/30 transition-colors">

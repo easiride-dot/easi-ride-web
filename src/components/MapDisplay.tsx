@@ -31,6 +31,7 @@ export function MapDisplay({
   interactive = true,
 }: MapDisplayProps) {
   const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
+  const [driverRoutePoints, setDriverRoutePoints] = useState<[number, number][]>([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
 
   const pickupCoords = useMemo<[number, number] | undefined>(() => {
@@ -86,6 +87,35 @@ export function MapDisplay({
 
     fetchRoute();
   }, [pickupCoords, campusCoords]);
+
+  useEffect(() => {
+    if (!driverCoords || !pickupCoords) {
+      setDriverRoutePoints([]);
+      return;
+    }
+
+    const fetchDriverRoute = async () => {
+      const [dLat, dLon] = driverCoords;
+      const [pLat, pLon] = pickupCoords;
+      const url = `https://router.project-osrm.org/route/v1/driving/${dLon},${dLat};${pLon},${pLat}?overview=full&geometries=geojson`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+          const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+            ([lon, lat]: [number, number]) => [lat, lon]
+          );
+          setDriverRoutePoints(coords);
+        } else {
+          setDriverRoutePoints([driverCoords, pickupCoords]);
+        }
+      } catch {
+        setDriverRoutePoints([driverCoords, pickupCoords]);
+      }
+    };
+
+    fetchDriverRoute();
+  }, [driverCoords, pickupCoords]);
 
   const handleCoordsChange = useCallback(async (lat: number, lon: number) => {
     if (!onPickupSelect) return;
@@ -179,6 +209,10 @@ export function MapDisplay({
         )}
 
         {routePoints.length > 1 && <RouteLayer points={routePoints} />}
+
+        {driverRoutePoints.length > 1 && (
+          <RouteLayer points={driverRoutePoints} id="driver-route" color="#10b981" width={4} />
+        )}
 
         {interactive && <MapControls />}
       </MapView>
