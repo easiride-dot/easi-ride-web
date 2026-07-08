@@ -151,8 +151,9 @@ const Matching = () => {
           </button>
         </div>
 
-        <Drawer.Root snapPoints={[0.35, 0.85]} activeSnapPoint={snap} setActiveSnapPoint={setSnap} modal={false}>
+        <Drawer.Root snapPoints={[0.35, 0.85]} activeSnapPoint={snap} setActiveSnapPoint={setSnap} dismissible={false} modal={false}>
           <Drawer.Portal>
+            <Drawer.Overlay className="fixed inset-0 bg-black/40" />
             <Drawer.Content
               className="fixed bottom-0 left-0 right-0 z-30 flex flex-col rounded-t-3xl bg-[#1A1A1A] border-t border-hairline outline-none max-h-[85dvh]"
               style={{ boxShadow: "0 -8px 30px rgba(0,0,0,0.3)" }}
