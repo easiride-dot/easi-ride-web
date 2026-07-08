@@ -1,278 +1,193 @@
-import { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
-import { DriverLocation } from "@/hooks/useDriverLocation";
-import { Ride } from "@/context/RideContext";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { MapView, LocationMarker, RouteLayer, MapControls, CameraController } from "@/map";
+import { supabase } from "@/integrations/supabase/client";
+import { parseApiJson } from "@/lib/parseApiResponse";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-const FREETOWN_CENTER: [number, number] = [-13.2344, 8.4844];
+const FREETOWN_CENTER: [number, number] = [8.4844, -13.2344];
 
-interface ActiveRideMapProps {
-  ride: Ride;
-  driverLocation: DriverLocation | null;
-  onMapLoad?: (map: maplibregl.Map) => void;
+interface MapDisplayProps {
+  pickupLat?: number;
+  pickupLon?: number;
+  campusLat?: number;
+  campusLon?: number;
+  campusName?: string;
+  onPickupSelect?: (address: string, lat: number, lon: number) => void;
+  isDraggable?: boolean;
+  driverLocation?: { latitude: number; longitude: number; heading: number | null } | null;
 }
 
-export function ActiveRideMap({
-  ride,
+export function MapDisplay({
+  pickupLat,
+  pickupLon,
+  campusLat,
+  campusLon,
+  campusName,
+  onPickupSelect,
+  isDraggable = true,
   driverLocation,
-  onMapLoad,
-}: ActiveRideMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const routeDrawnRef = useRef(false);
-  const pickupMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const destMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const driverMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+}: MapDisplayProps) {
+  const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
-  const hasRouteCoords = 
-    ride.pickupLatitude != null &&
-    ride.pickupLongitude != null &&
-    ride.destinationLatitude != null &&
-    ride.destinationLongitude != null;
+  const pickupCoords = useMemo<[number, number] | undefined>(() => {
+    return pickupLat != null && pickupLon != null ? [pickupLat, pickupLon] : undefined;
+  }, [pickupLat, pickupLon]);
 
-  const pickupLngLat = hasRouteCoords
-    ? [ride.pickupLongitude!, ride.pickupLatitude!] as [number, number]
-    : null;
+  const campusCoords = useMemo<[number, number] | undefined>(() => {
+    return campusLat != null && campusLon != null ? [campusLat, campusLon] : undefined;
+  }, [campusLat, campusLon]);
 
-  const destLngLat = hasRouteCoords
-    ? [ride.destinationLongitude!, ride.destinationLatitude!] as [number, number]
-    : null;
+  const driverCoords = useMemo<[number, number] | undefined>(() => {
+    return driverLocation ? [driverLocation.latitude, driverLocation.longitude] : undefined;
+  }, [driverLocation]);
 
-  const driverLngLat = driverLocation
-    ? [driverLocation.longitude, driverLocation.latitude] as [number, number]
-    : null;
+  const fitPoints = useMemo<[number, number][]>(() => {
+    const pts: [number, number][] = [];
+    if (pickupCoords) pts.push(pickupCoords);
+    if (campusCoords) pts.push(campusCoords);
+    if (driverCoords) pts.push(driverCoords);
+    return pts;
+  }, [pickupCoords, campusCoords, driverCoords]);
 
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      center: pickupLngLat ?? destLngLat ?? FREETOWN_CENTER,
-      zoom: 14,
-      pitch: 45,
-      bearing: 0,
-      interactive: false,
-      attributionControl: false,
-      logoPosition: "bottom-right",
-    });
-
-    mapRef.current = map;
-
-    map.on("load", () => {
-      setMapLoaded(true);
-      onMapLoad?.(map);
-      drawRouteIfNeeded(map);
-      addMarkers(map);
-      fitBounds(map);
-    });
-
-    return () => {
-      cleanupMarkers();
-      map.remove();
-      mapRef.current = null;
-      routeDrawnRef.current = false;
-      setMapLoaded(false);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
-    updateDriverMarker(mapRef.current);
-  }, [driverLocation, mapLoaded]);
-
-  useEffect(() => {
-    if (!mapRef.current || !mapLoaded || !hasRouteCoords) return;
-    if (routeDrawnRef.current) {
-      updateRouteSource(mapRef.current);
-    } else {
-      drawRouteIfNeeded(mapRef.current);
-    }
-  }, [pickupLngLat, destLngLat, mapLoaded]);
-
-  const drawRouteIfNeeded = async (map: maplibregl.Map) => {
-    if (!hasRouteCoords || routeDrawnRef.current) return;
-
-    try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${pickupLngLat![1]},${pickupLngLat![0]};${destLngLat![1]},${destLngLat![0]}?overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.code === "Ok" && data.routes?.[0]?.geometry) {
-        const routeGeoJSON = data.routes[0].geometry;
-        addRouteSource(map, routeGeoJSON);
-        routeDrawnRef.current = true;
-      }
-    } catch (error) {
-      console.error("Failed to fetch route:", error);
-    }
-  };
-
-  const addRouteSource = (map: maplibregl.Map, geometry: any) => {
-    if (map.getSource("student-route")) return;
-
-    map.addSource("student-route", {
-      type: "geojson",
-      data: { type: "Feature", geometry, properties: {} },
-    });
-
-    map.addLayer({
-      id: "student-route-casing",
-      type: "line",
-      source: "student-route",
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: {
-        "line-color": "#000000",
-        "line-width": 7,
-        "line-opacity": 0.3,
-      },
-    });
-
-    map.addLayer({
-      id: "student-route-line",
-      type: "line",
-      source: "student-route",
-      layout: { "line-join": "round", "line-cap": "round" },
-      paint: {
-        "line-color": "#FFFFFF",
-        "line-width": 4,
-        "line-opacity": 0.9,
-      },
-    }, "student-route-casing");
-  };
-
-  const updateRouteSource = (map: maplibregl.Map) => {
-    if (!hasRouteCoords) return;
-    const source = map.getSource("student-route") as maplibregl.GeoJSONSource | undefined;
-    if (source) {
-      const url = `https://router.project-osrm.org/route/v1/driving/${pickupLngLat![1]},${pickupLngLat![0]};${destLngLat![1]},${destLngLat![0]}?overview=full&geometries=geojson`;
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.code === "Ok" && data.routes?.[0]?.geometry) {
-            source.setData({ type: "Feature", geometry: data.routes[0].geometry, properties: {} });
-          }
-        })
-        .catch(console.error);
-    }
-  };
-
-  const addMarkers = (map: maplibregl.Map) => {
-    if (pickupLngLat) {
-      const pickupEl = document.createElement("div");
-      pickupEl.style.cssText = `
-        width: 14px;
-        height: 14px;
-        background: #22C55E;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-      `;
-      pickupMarkerRef.current = new maplibregl.Marker({ element: pickupEl })
-        .setLngLat(pickupLngLat)
-        .addTo(map);
-    }
-
-    if (destLngLat) {
-      const destEl = document.createElement("div");
-      destEl.style.cssText = `
-        width: 14px;
-        height: 14px;
-        background: #EF4444;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-      `;
-      destMarkerRef.current = new maplibregl.Marker({ element: destEl })
-        .setLngLat(destLngLat)
-        .addTo(map);
-    }
-
-    if (driverLngLat) {
-      const driverEl = document.createElement("div");
-      driverEl.style.cssText = `
-        width: 32px;
-        height: 32px;
-        background: #F59E0B;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-      `;
-      driverEl.innerHTML = "🛺";
-      driverMarkerRef.current = new maplibregl.Marker({ element: driverEl })
-        .setLngLat(driverLngLat)
-        .addTo(map);
-    }
-  };
-
-  const updateDriverMarker = (map: maplibregl.Map) => {
-    if (!driverLngLat) {
-      if (driverMarkerRef.current) {
-        driverMarkerRef.current.remove();
-        driverMarkerRef.current = null;
-      }
+    if (!pickupCoords || !campusCoords) {
+      setRoutePoints([]);
       return;
     }
 
-    if (driverMarkerRef.current) {
-      driverMarkerRef.current.setLngLat(driverLngLat);
-    } else {
-      const driverEl = document.createElement("div");
-      driverEl.style.cssText = `
-        width: 32px;
-        height: 32px;
-        background: #F59E0B;
-        border: 2px solid white;
-        border-radius: 50%;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: bold;
-        font-size: 14px;
-      `;
-      driverEl.innerHTML = "🛺";
-      driverMarkerRef.current = new maplibregl.Marker({ element: driverEl })
-        .setLngLat(driverLngLat)
-        .addTo(map);
+    const fetchRoute = async () => {
+      setLoadingRoute(true);
+      try {
+        const [pickupLatVal, pickupLonVal] = pickupCoords;
+        const [campusLatVal, campusLonVal] = campusCoords;
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${pickupLonVal},${pickupLatVal};${campusLonVal},${campusLatVal}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+          const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+            ([lon, lat]: [number, number]) => [lat, lon]
+          );
+          setRoutePoints(coords);
+        } else {
+          setRoutePoints([pickupCoords, campusCoords]);
+        }
+      } catch {
+        setRoutePoints([pickupCoords, campusCoords]);
+      } finally {
+        setLoadingRoute(false);
+      }
+    };
+
+    fetchRoute();
+  }, [pickupCoords, campusCoords]);
+
+  const handleCoordsChange = useCallback(async (lat: number, lon: number) => {
+    if (!onPickupSelect) return;
+
+    const toastId = toast.loading("Updating pickup address...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await fetch("/api/reverse-geocode", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ lat, lon }),
+      });
+
+      const { ok, data, error } = await parseApiJson<{ placeName?: string; error?: string }>(response);
+
+      if (ok && data?.placeName) {
+        onPickupSelect(data.placeName, lat, lon);
+        toast.success("Pickup updated", { id: toastId });
+      } else {
+        toast.error(error || "Could not retrieve address details.", { id: toastId });
+      }
+    } catch {
+      toast.error("Failed to update location details.", { id: toastId });
     }
-  };
+  }, [onPickupSelect]);
 
-  const fitBounds = (map: maplibregl.Map) => {
-    if (!hasRouteCoords) return;
+  const handleMarkerDragEnd = useCallback((lat: number, lon: number) => {
+    handleCoordsChange(lat, lon);
+  }, [handleCoordsChange]);
 
-    const bounds = new maplibregl.LngLatBounds();
-    bounds.extend(pickupLngLat!);
-    bounds.extend(destLngLat!);
-    if (driverLngLat) bounds.extend(driverLngLat);
-
-    map.fitBounds(bounds, {
-      padding: { top: 80, bottom: 380, left: 40, right: 40 },
-      duration: 800,
-    });
-  };
-
-  const cleanupMarkers = () => {
-    pickupMarkerRef.current?.remove();
-    destMarkerRef.current?.remove();
-    driverMarkerRef.current?.remove();
-    pickupMarkerRef.current = null;
-    destMarkerRef.current = null;
-    driverMarkerRef.current = null;
-  };
+  const handleMapClick = useCallback((lat: number, lon: number) => {
+    if (isDraggable) {
+      handleCoordsChange(lat, lon);
+    }
+  }, [isDraggable, handleCoordsChange]);
 
   return (
-    <div
-      ref={mapContainerRef}
-      className="absolute inset-0 w-full h-full z-0"
-      style={{ width: "100%", height: "100%" }}
-    />
+    <div className="relative glass-card rounded-2xl overflow-hidden shadow-elevated border border-hairline/60 h-[280px] w-full z-10 animate-fade-up">
+      {loadingRoute && (
+        <div className="absolute top-3 right-3 z-[1000] bg-background/80 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-hairline flex items-center gap-1.5 text-xs text-muted-foreground shadow-sm">
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          <span>Calculating route...</span>
+        </div>
+      )}
+
+      <MapView
+        initialViewState={{
+          longitude: (pickupCoords?.[1] ?? campusCoords?.[1] ?? FREETOWN_CENTER[1]),
+          latitude: (pickupCoords?.[0] ?? campusCoords?.[0] ?? FREETOWN_CENTER[0]),
+          zoom: 14,
+          pitch: 45,
+          bearing: 0,
+        }}
+        scrollZoom
+        dragPan
+        onClick={(e) => handleMapClick(e.lngLat.lat, e.lngLat.lng)}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <CameraController fitPoints={fitPoints} padding={40} />
+
+        {pickupCoords && (
+          <LocationMarker
+            latitude={pickupCoords[0]}
+            longitude={pickupCoords[1]}
+            type="pickup"
+            draggable={isDraggable}
+            onDragEnd={handleMarkerDragEnd}
+          />
+        )}
+
+        {campusCoords && (
+          <LocationMarker
+            latitude={campusCoords[0]}
+            longitude={campusCoords[1]}
+            type="campus"
+          />
+        )}
+
+        {driverCoords && (
+          <LocationMarker
+            latitude={driverCoords[0]}
+            longitude={driverCoords[1]}
+            type="driver"
+            heading={driverLocation?.heading ?? null}
+          />
+        )}
+
+        {routePoints.length > 1 && <RouteLayer points={routePoints} />}
+
+        <MapControls />
+      </MapView>
+
+      {isDraggable && !pickupCoords && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center bg-black/40 z-[999] backdrop-blur-[1px]">
+          <div className="bg-background/90 px-4 py-2.5 rounded-2xl border border-hairline/80 shadow-elevated text-center max-w-[80%]">
+            <p className="text-xs font-semibold">Tap on the map or search to choose pickup</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
