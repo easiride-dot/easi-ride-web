@@ -1,13 +1,24 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
-import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, Check, MapPin, Navigation, LucideIcon, Loader2, ShieldAlert, Share2, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
+import { ActiveRideMap } from "@/components/MapDisplay";
+import { Navigation, Loader2, Phone } from "lucide-react";
+import { Drawer } from "vaul";
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case "driver_assigned": return "Driver on the way";
+    case "driver_arrived": return "Driver arrived";
+    case "in_progress": return "Ride in progress";
+    case "completed": return "Ride completed";
+    case "paid_and_dispatched": return "Paid and dispatched";
+    default: return "Finding your driver...";
+  }
+}
 
 const Matching = () => {
   const { id } = useParams();
@@ -16,7 +27,7 @@ const Matching = () => {
   const { user } = useAuth();
   const ride = rides.find((r) => r.id === id);
   const [paying, setPaying] = useState(false);
-  
+
   const driverLocation = useDriverLocation(ride?.driverId);
 
   const handlePayForTrip = async () => {
@@ -48,7 +59,7 @@ const Matching = () => {
         return;
       }
       window.location.href = result.redirectUrl;
-    } catch (error) {
+    } catch {
       toast.error("Unable to start payment");
       setPaying(false);
     }
@@ -62,42 +73,18 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance";
-  const isAssigned = ride.status === "driver_assigned";
+  const waitingForDriver = ride.status === "pool_locked_awaiting_driver";
+  const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived";
   const isDispatched = ride.status === "paid_and_dispatched";
+  const isCompleted = ride.status === "completed" || ride.status === "cancelled";
   const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
-  const isShared = ride.type === "shared";
-  const isFriend = user && ride.userId !== user.id;
-  const friendNeedsToPay = isShared && isFriend && requiresPayment && (waitingForSeat || waitingForDriver);
+  const showActiveRide = waitingForDriver || isAssigned || ride.status === "pending_driver_acceptance" || ride.status === "in_progress" || isDispatched;
 
-  const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
-
-  // Calculate share (1/3 of total fare for shared rides)
-  const userShare = Math.round((ride.fareAmount || ride.price) / 3);
-
-  return (
-    <div className="space-y-6 animate-fade-up">
-      {friendNeedsToPay && (
-        <div className="glass-card p-6 rounded-3xl">
-          <div className="flex items-start gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 mb-4">
-            <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-emerald-300">Seat claimed!</p>
-              <p className="text-xs text-muted-foreground mt-1">Complete your payment to confirm your spot in the shared ride.</p>
-            </div>
-          </div>
-          <div className="mb-4 p-4 rounded-xl bg-secondary/20">
-            <p className="text-xs text-muted-foreground mb-1">Your share (1/3 of total fare)</p>
-            <p className="font-display text-3xl font-semibold">{userShare} NLe</p>
-          </div>
-          <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12">
-            {paying ? <Loader2 className="animate-spin" /> : `Pay ${userShare} NLe`}
-          </Button>
-        </div>
-      )}
-
-      {(waitingForSeat || waitingForDriver) && !friendNeedsToPay && (
-        <div className={`flex flex-col items-center justify-center text-center ${waitingForSeat ? "min-h-[38vh]" : "min-h-[70vh]"}`}>
+  // Waiting states — show old spinner UI
+  if (!showActiveRide) {
+    return (
+      <div className="space-y-6 animate-fade-up">
+        <div className="flex flex-col items-center justify-center text-center min-h-[70vh]">
           <div className="relative flex h-24 w-24 items-center justify-center">
             <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
             <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
@@ -112,106 +99,180 @@ const Matching = () => {
               ? "Share your invite link so your friend can confirm their seat before we dispatch a driver."
               : "Hang tight. We're matching you with the closest verified keke headed your way."}
           </p>
-
-
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-[100dvh] overflow-hidden">
+      {/* Full-screen map */}
+      {showActiveRide && (
+        <ActiveRideMap ride={ride} driverLocation={driverLocation} />
       )}
 
-      {(isAssigned || isDispatched) && (
-        <>
-          <div className="flex items-center gap-3 rounded-full border border-hairline bg-secondary/30 px-4 py-2 text-sm mb-4">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-background">
-              <Check className="h-3.5 w-3.5" />
-            </span>
-            {isAssigned ? `Driver assigned - Arriving in ${ride.etaMinutes || "?"} min` : "Paid and dispatched"}
-          </div>
+      {/* Top header overlay */}
+      <div className="absolute top-0 left-0 right-0 z-20 pt-12 pb-4 px-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="pointer-events-auto flex items-center justify-center h-10 w-10 rounded-full bg-background/80 backdrop-blur-md border border-hairline/50 shadow-elevated"
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+      </div>
 
-          <div className="mb-4">
-            <MapDisplay driverLocation={driverLocation} isDraggable={false} />
-          </div>
+      {/* Top status chip */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20">
+        <div className="bg-background/90 backdrop-blur-md border border-hairline rounded-full px-4 py-2 shadow-elevated flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            {getStatusLabel(ride.status)}
+          </span>
+        </div>
+      </div>
 
-          <div className="glass-card overflow-hidden rounded-3xl shadow-elevated">
-            <div className="flex items-center gap-4 p-6">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary border font-display text-lg font-semibold">
-                {ride.driverName?.[0] ?? "D"}
-              </div>
-              <div className="flex-1">
-                <div className="font-display text-lg font-semibold">{ride.driverName || "Driver"}</div>
-                <div className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</div>
-              </div>
-            </div>
-
-            {requiresPayment && isAssigned && (
-              <div className="p-6 border-t border-hairline/70 bg-amber-500/5">
-                <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 mb-4">
-                  <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-300">Driver is waiting! Pay {isShared ? userShare : ride.price} NLe to confirm.</p>
-                </div>
-                <Button onClick={handlePayForTrip} disabled={paying} className="w-full h-12 bg-amber-500">
-                  {paying ? <Loader2 className="animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
-                </Button>
-              </div>
-            )}
-
-            {!requiresPayment && (isAssigned || isDispatched) && (
-              <div className="grid grid-cols-2 border-t border-hairline/70">
-                <a href={`tel:${ride.driverPhone}`} className="flex items-center justify-center gap-2 py-4 text-sm font-medium"><Phone className="h-4 w-4" /> Call</a>
-                <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 border-l py-4 text-sm font-medium"><MessageCircle className="h-4 w-4" /> WhatsApp</a>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {isShared && (
-        <div className="glass-card p-6 rounded-3xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-primary" />
-            <div>
-              <div className="font-semibold text-sm">{waitingForSeat ? "Send invite link" : "Invite friends"}</div>
-              <div className="text-xs text-muted-foreground">
-                {waitingForSeat ? "Driver matching starts after your friend claims a seat" : "Share the ride fare"}
-              </div>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
-              toast.success("Invite link copied");
-            }}
+      {/* Vaul Drawer bottom sheet */}
+      <Drawer.Root snapPoints={[0.35, 0.65]} defaultSnap={0.35} modal={false}>
+        <Drawer.Portal>
+          <Drawer.Content
+            className="fixed bottom-0 left-0 right-0 z-10 bg-background rounded-t-[20px] border-t border-border focus:outline-none"
+            style={{ height: "65vh" }}
           >
-            <Share2 className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
 
-      {!waitingForSeat && !waitingForDriver && (
-        <div className="glass-card rounded-2xl p-5">
-          <h3 className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Trip details</h3>
-          <div className="mt-4 space-y-4">
-            <Row icon={MapPin} label="Pickup" value={ride.pickup} />
-            <Row icon={Navigation} label="Destination" value={ride.destination} />
-          </div>
-        </div>
-      )}
+            {/* Scrollable content */}
+            <div
+              className="overflow-y-auto px-4 pb-8"
+              style={{ maxHeight: "calc(65vh - 32px)" }}
+            >
+              {/* Status banner */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm font-medium uppercase tracking-wider text-foreground">
+                  {getStatusLabel(ride.status)}
+                </span>
+              </div>
 
-      <Button asChild variant="outline" size="lg" className="w-full">
-        <Link to="/dashboard">Back to dashboard</Link>
-      </Button>
+              {/* Driver info card */}
+              <div className="bg-card border border-border rounded-2xl p-4 mb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      Your Driver
+                    </p>
+                    <p className="font-semibold text-base text-foreground">
+                      {ride.driverName || "Driver"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
+                  </div>
+                  {ride.student_phone || ride.driverPhone ? (
+                    <button
+                      onClick={() => window.open(`tel:${ride.driverPhone}`, "_self")}
+                      className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
+                    >
+                      <Phone className="h-5 w-5 text-primary" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Route card */}
+              <div className="bg-card border border-border rounded-2xl p-4 mb-3">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-3 h-3 rounded-full bg-green-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                        Pickup
+                      </p>
+                      <p className="text-sm font-medium text-foreground">{ride.pickup}</p>
+                    </div>
+                  </div>
+                  <div className="ml-1.5 w-px h-4 bg-border" />
+                  <div className="flex items-start gap-3">
+                    <div className="w-3 h-3 rounded-full bg-red-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                        Destination
+                      </p>
+                      <p className="text-sm font-medium text-foreground">{ride.destination}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fare card */}
+              <div className="bg-card border border-border rounded-2xl p-4 mb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      Trip Fare
+                    </p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {ride.fareAmount ?? ride.price ?? "—"}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">NLe</span>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      Distance
+                    </p>
+                    <p className="text-lg font-semibold text-foreground">
+                      {ride.distanceKm ? ride.distanceKm.toFixed(1) : "—"}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">km</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment button */}
+              {ride.paymentType === "trip" && ride.paymentStatus === "pending" && (
+                <button
+                  onClick={handlePayForTrip}
+                  disabled={paying}
+                  className="w-full bg-primary text-primary-foreground font-semibold py-4 rounded-2xl text-base active:scale-[0.98] transition-transform flex items-center justify-center gap-2 mb-3 disabled:opacity-50"
+                >
+                  {paying ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <span>Pay {ride.fareAmount ?? ride.price} NLe</span>
+                  )}
+                </button>
+              )}
+
+              {/* Paid / subscription badge */}
+              {(ride.paymentStatus === "paid" || ride.paymentType === "subscription") && (
+                <div className="w-full bg-green-500/10 border border-green-500/30 rounded-2xl py-3 px-4 flex items-center justify-center gap-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-green-500 font-medium text-sm">
+                    {ride.paymentType === "subscription" ? "Covered by subscription" : "Payment confirmed"}
+                  </span>
+                </div>
+              )}
+
+              {/* Emergency / Contact */}
+              <button
+                onClick={() => {
+                  window.open(
+                    `https://wa.me/23278000000?text=EMERGENCY: I need help with my Easi Ride. Ride ID: ${ride.id}`,
+                    "_blank"
+                  );
+                }}
+                className="w-full border border-border text-muted-foreground font-medium py-3 rounded-2xl text-sm active:scale-[0.98] transition-transform"
+              >
+                Emergency / Contact Support
+              </button>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 };
-
-const Row = ({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) => (
-  <div className="flex items-center gap-3">
-    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border"><Icon className="h-4 w-4" /></div>
-    <div>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="font-medium">{value}</div>
-    </div>
-  </div>
-);
 
 export default Matching;
