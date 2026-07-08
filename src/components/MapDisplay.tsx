@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
-import "../map/maplibre-gl.css";
 import { DriverLocation } from "@/hooks/useDriverLocation";
 import { Ride } from "@/context/RideContext";
 
