@@ -152,7 +152,7 @@ const Matching = () => {
           </button>
         </div>
 
-        <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen} snapPoints={[0.35, 0.85]} activeSnapPoint={snap} setActiveSnapPoint={setSnap} dismissible={false} modal={false}>
+        <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen} snapPoints={[0.5, 0.85]} activeSnapPoint={snap} setActiveSnapPoint={setSnap} dismissible={false} modal={false}>
           <Drawer.Portal>
             <Drawer.Overlay className="fixed inset-0 bg-black/40" />
             <Drawer.Content
