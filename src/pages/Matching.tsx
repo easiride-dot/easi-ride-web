@@ -135,53 +135,11 @@ const Matching = () => {
         <Drawer.Root snapPoints={[0.15, 0.35, 0.75]} defaultSnap={0.35} modal={false}>
           <Drawer.Portal>
             <Drawer.Content
-              className="fixed bottom-0 left-0 right-0 z-10 bg-background rounded-t-[20px] focus:outline-none shadow-[0_-4px_20px_rgba(0,0,0,0.12)]"
-              style={{ height: "75vh" }}
+              className="fixed inset-x-0 bottom-0 z-10 flex flex-col bg-background rounded-t-[20px] focus:outline-none shadow-[0_-4px_20px_rgba(0,0,0,0.12)]"
+              style={{ height: "calc(100dvh - 30px)" }}
             >
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
-              </div>
-
-              <div className="px-5 pb-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-medium text-foreground shrink-0">
-                    {ride.driverName?.[0] ?? "D"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-medium text-foreground">{ride.driverName || "Driver"}</p>
-                    <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
-                  </div>
-                </div>
-
-                {isAssigned ? (
-                  <p className="text-[42px] font-light text-foreground leading-none mb-1">
-                    {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min away</span>
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm font-medium text-foreground mb-1">On your way</p>
-                    <p className="text-[42px] font-light text-foreground leading-none mb-1">
-                      {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">{ride.destination}</p>
-                  </>
-                )}
-
-                {!requiresPayment && (
-                  <div className="flex items-center gap-5 mt-4">
-                    <a href={`tel:${ride.driverPhone}`} className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <Phone className="h-4 w-4" /> Call
-                    </a>
-                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium text-foreground">
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              <hr className="border-t border-border mx-5" />
-
-              <div className="overflow-y-auto px-5 pb-8 pt-4" style={{ maxHeight: "calc(75vh - 220px)" }}>
+              {/* Scrollable expanded content — top of flex, hidden at collapsed snap */}
+              <div className="flex-1 overflow-y-auto px-5 pt-8">
                 {requiresPayment && isAssigned && (
                   <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4">
                     <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">Driver is waiting! Pay to confirm your ride.</p>
@@ -225,6 +183,48 @@ const Matching = () => {
                 >
                   Emergency / Contact Support
                 </button>
+              </div>
+
+              {/* Always-visible bottom section — last in flex = visible at all snap points */}
+              <div className="shrink-0 px-5 pb-6">
+                <div className="flex justify-center pt-3 pb-4">
+                  <div className="w-9 h-1 rounded-full bg-muted-foreground/30" />
+                </div>
+
+                {!requiresPayment && (
+                  <div className="flex items-center gap-5 mb-4">
+                    <a href={`tel:${ride.driverPhone}`} className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <Phone className="h-4 w-4" /> Call
+                    </a>
+                    <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      <MessageCircle className="h-4 w-4" /> WhatsApp
+                    </a>
+                  </div>
+                )}
+
+                {isAssigned ? (
+                  <p className="text-[42px] font-light text-foreground leading-none mb-1">
+                    {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min away</span>
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-foreground mb-1">On your way</p>
+                    <p className="text-[42px] font-light text-foreground leading-none mb-1">
+                      {ride.etaMinutes || "?"} <span className="text-base font-normal text-muted-foreground">min</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">{ride.destination}</p>
+                  </>
+                )}
+
+                <div className="flex items-center gap-3 mt-4">
+                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-lg font-medium text-foreground shrink-0">
+                    {ride.driverName?.[0] ?? "D"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-medium text-foreground">{ride.driverName || "Driver"}</p>
+                    <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
+                  </div>
+                </div>
               </div>
             </Drawer.Content>
           </Drawer.Portal>
