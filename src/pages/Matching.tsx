@@ -117,21 +117,45 @@ const Matching = () => {
 
   if (waitingForSeat || waitingForDriver) {
     return (
-      <div className={`flex flex-col items-center justify-center text-center ${waitingForSeat ? "min-h-[38vh]" : "min-h-[70vh]"}`}>
-        <div className="relative flex h-24 w-24 items-center justify-center">
-          <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
-            <Navigation className="h-5 w-5" />
+      <div className="flex flex-col items-center px-5">
+        {waitingForSeat ? (
+          <>
+            <div className="flex flex-col items-center justify-center text-center min-h-[38vh]">
+              <div className="relative flex h-24 w-24 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
+                  <Navigation className="h-5 w-5" />
+                </div>
+              </div>
+              <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Waiting for your friend...</h1>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                Share your invite link so your friend can confirm their seat before we dispatch a driver.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
+                toast.success("Invite link copied");
+              }}
+              className="mt-6 w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-background border border-hairline text-sm font-semibold text-foreground hover:bg-secondary/30 transition-colors"
+            >
+              <Share2 className="h-4 w-4 text-muted-foreground" /> Invite friends to share fare
+            </button>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center text-center min-h-[70vh]">
+            <div className="relative flex h-24 w-24 items-center justify-center">
+              <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+              <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
+                <Navigation className="h-5 w-5" />
+              </div>
+            </div>
+            <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Finding a driver...</h1>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              Hang tight. We're matching you with the closest verified keke headed your way.
+            </p>
           </div>
-        </div>
-        <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">
-          {waitingForSeat ? "Waiting for your friend..." : "Finding a driver..."}
-        </h1>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          {waitingForSeat
-            ? "Share your invite link so your friend can confirm their seat before we dispatch a driver."
-            : "Hang tight. We're matching you with the closest verified keke headed your way."}
-        </p>
+        )}
       </div>
     );
   }
