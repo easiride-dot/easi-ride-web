@@ -29,6 +29,10 @@ export interface Ride {
   distanceKm?: number;
   fareAmount?: number;
   driverId?: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  destinationLatitude?: number;
+  destinationLongitude?: number;
 }
 
 interface RideContextValue {
@@ -62,6 +66,10 @@ type RideRow = {
   distance_km: number | null;
   fare_amount: number | null;
   driver_id: string | null;
+  pickup_latitude: number | null;
+  pickup_longitude: number | null;
+  destination_latitude: number | null;
+  destination_longitude: number | null;
 };
 
 const mapRow = (r: RideRow): Ride => ({
@@ -83,6 +91,10 @@ const mapRow = (r: RideRow): Ride => ({
   distanceKm: r.distance_km ?? undefined,
   fareAmount: r.fare_amount ?? undefined,
   driverId: r.driver_id ?? undefined,
+  pickupLatitude: r.pickup_latitude ?? undefined,
+  pickupLongitude: r.pickup_longitude ?? undefined,
+  destinationLatitude: r.destination_latitude ?? undefined,
+  destinationLongitude: r.destination_longitude ?? undefined,
 });
 
 export const RideProvider = ({ children }: { children: ReactNode }) => {
