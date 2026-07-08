@@ -3,7 +3,7 @@ import maplibregl from "maplibre-gl";
 import { DriverLocation } from "@/hooks/useDriverLocation";
 import { Ride } from "@/context/RideContext";
 
-const FREETOWN_CENTER: [number, number] = [8.4844, -13.2344];
+const FREETOWN_CENTER: [number, number] = [-13.2344, 8.4844];
 
 interface ActiveRideMapProps {
   ride: Ride;
