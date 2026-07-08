@@ -51,7 +51,6 @@ const App = () => (
                 <Route path="/checkout/complete" element={<CheckoutComplete />} />
                 <Route path="/trip/complete" element={<CheckoutComplete />} />
                 <Route path="/request" element={<Request />} />
-                <Route path="/matching/:id" element={<Matching />} />
                 <Route path="/account" element={<Account />} />
                 <Route path="/account/notifications" element={<Notifications />} />
                 <Route path="/account/privacy" element={<PrivacySecurity />} />
@@ -66,6 +65,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
+                <Route path="/matching/:id" element={<Matching />} />
                 <Route path="/checkout/weekly" element={<Checkout />} />
                 <Route path="/trip/book" element={<TripBooking />} />
               </Route>

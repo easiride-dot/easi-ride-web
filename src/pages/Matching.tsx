@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, MapPin, Navigation, LucideIcon, Loader2, Share2, Users, ArrowLeft, Clock, CheckCircle, MessageSquareWarning } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Share2, Users, ArrowLeft, MessageSquareWarning } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
