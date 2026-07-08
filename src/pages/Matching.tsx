@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { ActiveRideMap } from "@/components/MapDisplay";
-import { Navigation, Loader2, Phone } from "lucide-react";
+import { Navigation, Loader2 } from "lucide-react";
 import { Drawer } from "vaul";
 
 function getStatusLabel(status: string): string {
@@ -170,14 +170,11 @@ const Matching = () => {
                     </p>
                     <p className="text-sm text-muted-foreground">{ride.vehicle || "Verified Keke"}</p>
                   </div>
-                  {ride.student_phone || ride.driverPhone ? (
-                    <button
-                      onClick={() => window.open(`tel:${ride.driverPhone}`, "_self")}
-                      className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors"
-                    >
-                      <Phone className="h-5 w-5 text-primary" />
-                    </button>
-                  ) : null}
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">ETA</p>
+                    <p className="text-2xl font-bold text-foreground">{ride.etaMinutes ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground">min</p>
+                  </div>
                 </div>
               </div>
 

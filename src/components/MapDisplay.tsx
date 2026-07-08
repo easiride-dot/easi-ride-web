@@ -138,7 +138,7 @@ export function ActiveRideMap({
         "line-width": 4,
         "line-opacity": 0.9,
       },
-    }, "student-route-casing");
+    });
   };
 
   const updateRouteSource = (map: maplibregl.Map) => {
