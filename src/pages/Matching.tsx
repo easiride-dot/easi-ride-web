@@ -18,6 +18,8 @@ const Matching = () => {
   const { user } = useAuth();
   const ride = rides.find((r) => r.id === id);
   const [paying, setPaying] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [snap, setSnap] = useState<number | string | null>(0.85);
   
   const driverLocation = useDriverLocation(ride?.driverId);
 
@@ -133,9 +135,6 @@ const Matching = () => {
       </div>
     );
   }
-
-  const [drawerOpen, setDrawerOpen] = useState(true);
-  const [snap, setSnap] = useState<number | string | null>(0.85);
 
   if (isAssigned || isDispatched) {
     return (
