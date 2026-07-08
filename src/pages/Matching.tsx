@@ -20,6 +20,8 @@ const Matching = () => {
   const [paying, setPaying] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [snap, setSnap] = useState<number | string | null>(0.85);
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [campusCoords, setCampusCoords] = useState<{ lat: number; lon: number } | null>(null);
   
   const driverLocation = useDriverLocation(ride?.driverId);
 
@@ -62,6 +64,30 @@ const Matching = () => {
     if (loading) return;
     if (!ride) navigate("/dashboard");
   }, [ride?.id, loading, navigate]);
+
+  useEffect(() => {
+    if (!ride) return;
+    const geocode = async (address: string) => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=sl`
+        );
+        const data = await res.json();
+        if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+      } catch {}
+      return null;
+    };
+    if (!ride.pickupLatitude && ride.pickup) {
+      geocode(ride.pickup).then(setPickupCoords);
+    } else if (ride.pickupLatitude && ride.pickupLongitude) {
+      setPickupCoords({ lat: ride.pickupLatitude, lon: ride.pickupLongitude });
+    }
+    if (!ride.destinationLatitude && ride.destination) {
+      geocode(ride.destination).then(setCampusCoords);
+    } else if (ride.destinationLatitude && ride.destinationLongitude) {
+      setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
+    }
+  }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude]);
 
   if (loading || !ride) return null;
 
@@ -167,10 +193,10 @@ const Matching = () => {
           driverLocation={driverLocation}
           isDraggable={false}
           interactive
-          pickupLat={ride.pickupLatitude}
-          pickupLon={ride.pickupLongitude}
-          campusLat={ride.destinationLatitude}
-          campusLon={ride.destinationLongitude}
+          pickupLat={pickupCoords?.lat}
+          pickupLon={pickupCoords?.lon}
+          campusLat={campusCoords?.lat}
+          campusLon={campusCoords?.lon}
         />
 
         {/* Top gradient overlay */}
