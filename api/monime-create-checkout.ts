@@ -165,8 +165,7 @@ export default async function handler(req: any, res: any) {
       const { data: weeklyCfg } = await supabase
         .from("pricing_config")
         .select("per_km_rate")
-        .limit(1)
-        .maybeSingle();
+        .single();
       const weeklyRate = weeklyCfg?.per_km_rate ?? 7;
 
       amount = Math.ceil(weeklyDistanceKm * WEEKLY_MULTIPLIER * Number(weeklyRate));

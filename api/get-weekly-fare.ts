@@ -119,8 +119,7 @@ export default async function handler(req: any, res: any) {
     const { data: config, error } = await supabaseAdmin
       .from("pricing_config")
       .select("per_km_rate")
-      .limit(1)
-      .maybeSingle();
+      .single();
 
     if (!error && config?.per_km_rate) {
       perKmRate = Number(config.per_km_rate);
