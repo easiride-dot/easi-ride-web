@@ -46,6 +46,7 @@ async function calculateFare(
   const { data: config, error } = await supabaseAdmin
     .from("pricing_config")
     .select("base_fare, per_km_rate, surge_mode, surge_normal, surge_peak, surge_rain")
+    .order("created_at", { ascending: false } as any)
     .limit(1)
     .maybeSingle();
 
