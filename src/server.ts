@@ -31,9 +31,7 @@ app.all("/api/monime-checkout-cancel", await loadHandler("/api/monime-checkout-c
 app.post("/api/monime-stk-push", await loadHandler("/api/monime-stk-push.ts"));
 app.post("/api/monime-webhook", await loadHandler("/api/monime-webhook.ts"));
 app.post("/api/send-push-notification", await loadHandler("/api/send-push-notification.ts"));
-app.post("/api/broadcast-ride", await loadHandler("/api/broadcast-ride.ts"));
-app.post("/api/accept-ride", await loadHandler("/api/accept-ride.ts"));
-app.post("/api/decline-ride-invitation", await loadHandler("/api/decline-ride-invitation.ts"));
+app.post("/api/dispatch", await loadHandler("/api/dispatch.ts"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

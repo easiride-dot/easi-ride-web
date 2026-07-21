@@ -68,13 +68,13 @@ const Matching = () => {
         try {
           const apiBase = import.meta.env.VITE_API_URL || "";
           const { data: { session } } = await supabase.auth.getSession();
-          await fetch(`${apiBase}/api/broadcast-ride`, {
+          await fetch(`${apiBase}/api/dispatch`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
             },
-            body: JSON.stringify({ rideId: ride.id }),
+            body: JSON.stringify({ type: "broadcast", rideId: ride.id }),
           });
         } catch {
           // Broadcast is best-effort; admin can manually assign
