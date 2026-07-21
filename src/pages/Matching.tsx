@@ -155,6 +155,8 @@ const Matching = () => {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("Pick driver failed:", res.status, err);
+        toast.error(err?.error || "Failed to request driver. Try again.");
+        return;
       }
     } catch (e) {
       console.error("Pick driver error:", e);
