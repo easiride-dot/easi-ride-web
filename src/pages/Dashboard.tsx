@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import * as Drawer from "vaul";
-import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell, Smartphone, Monitor, X } from "lucide-react";
+import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell, Smartphone, Monitor, X, Share2 } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -42,6 +42,9 @@ const Dashboard = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showIosPwaGuide, setShowIosPwaGuide] = useState(false);
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
   const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
@@ -457,10 +460,31 @@ const Dashboard = () => {
                     <p className="text-sm font-semibold text-white">Install App</p>
                     <p className="text-xs text-white/60">Install Easi Ride on your device</p>
                   </div>
-                  {!isPwaInstalled && (
+                  {!isPwaInstalled && !isIOS && (
                     <button onClick={handleInstallPwa} className="shrink-0 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Install</button>
                   )}
+                  {!isPwaInstalled && isIOS && !showIosPwaGuide && (
+                    <button onClick={() => setShowIosPwaGuide(true)} className="shrink-0 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">Install</button>
+                  )}
                 </div>
+                {!isPwaInstalled && isIOS && showIosPwaGuide && (
+                  <div className="mt-3 p-3 bg-black/40 rounded-xl border border-white/10 text-xs text-white/80 space-y-3">
+                    <ol className="list-decimal pl-4 space-y-2.5">
+                      <li>Tap the <b>Share icon</b> <Share2 className="inline h-3.5 w-3.5" /> at the bottom of Safari</li>
+                      <li>Scroll down and tap <b>"Add to Home Screen"</b> <Plus className="inline h-3.5 w-3.5" /></li>
+                      <li>Tap <b>"Add"</b> in the top-right corner</li>
+                      <li>Open Easi Ride from your <b>home screen</b></li>
+                    </ol>
+                    <div className="flex gap-2">
+                      <button onClick={handleInstallPwa} className="flex-1 py-2.5 bg-white text-black text-xs font-bold rounded-xl hover:bg-white/90 transition-colors">
+                        I've Installed It
+                      </button>
+                      <button onClick={() => setShowIosPwaGuide(false)} className="py-2.5 px-4 text-white/60 text-xs rounded-xl hover:bg-white/10 transition-colors">
+                        Hide
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className={"rounded-2xl p-4 border transition-colors " + (pushState === "enabled" ? "bg-emerald-500/10 border-emerald-500/30" : "bg-white/5 border-white/10")}>
