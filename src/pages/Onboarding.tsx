@@ -116,7 +116,6 @@ export default function Onboarding() {
   
   const handleContinue = () => {
     navigate("/trip/book", { replace: true });
-    window.location.reload(); 
   };
 
   const steps = [
