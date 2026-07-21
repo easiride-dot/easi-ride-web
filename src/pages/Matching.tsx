@@ -60,6 +60,30 @@ const Matching = () => {
     }
   };
 
+  // Broadcast to drivers when ride is ready for dispatch
+  useEffect(() => {
+    if (!ride) return;
+    if (ride.status === "pool_locked_awaiting_driver") {
+      const doBroadcast = async () => {
+        try {
+          const apiBase = import.meta.env.VITE_API_URL || "";
+          const { data: { session } } = await supabase.auth.getSession();
+          await fetch(`${apiBase}/api/broadcast-ride`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: JSON.stringify({ rideId: ride.id }),
+          });
+        } catch {
+          // Broadcast is best-effort; admin can manually assign
+        }
+      };
+      doBroadcast();
+    }
+  }, [ride?.id, ride?.status]);
+
   useEffect(() => {
     if (loading) return;
     if (!ride) navigate("/dashboard");
@@ -92,9 +116,9 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance";
-  const isAssigned = ride.status === "driver_assigned";
-  const isDispatched = ride.status === "paid_and_dispatched";
+  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance" || ride.status === "searching_driver";
+  const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived" || ride.status === "in_progress";
+  const isDispatched = ride.status === "paid_and_dispatched" || ride.status === "completed";
   const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
   const isShared = ride.type === "shared";
   const isFriend = user && ride.userId !== user.id;

@@ -17,14 +17,24 @@ import { subscribeToPushNotifications, getExistingPushSubscription } from "@/lib
 const statusStyles: Record<string, string> = {
   pending_friend_commitment: "bg-amber-500/10 text-amber-200",
   pool_locked_awaiting_driver: "bg-secondary text-muted-foreground",
+  searching_driver: "bg-primary/20 text-primary",
+  pending_driver_acceptance: "bg-orange-500/10 text-orange-200",
   driver_assigned: "bg-foreground text-background",
+  driver_arrived: "bg-blue-500/10 text-blue-300",
+  in_progress: "bg-emerald-500/10 text-emerald-300",
+  completed: "bg-emerald-500/10 text-emerald-300",
   paid_and_dispatched: "bg-emerald-500/10 text-emerald-300",
 };
 
 const statusLabel: Record<string, string> = {
   pending_friend_commitment: "Waiting for seat",
   pool_locked_awaiting_driver: "Finding driver",
+  searching_driver: "Searching for driver",
+  pending_driver_acceptance: "Awaiting driver",
   driver_assigned: "Driver assigned",
+  driver_arrived: "Driver arrived",
+  in_progress: "En route",
+  completed: "Completed",
   paid_and_dispatched: "Dispatched",
 };
 

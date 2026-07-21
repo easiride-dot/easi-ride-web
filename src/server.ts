@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { createServer, loadEnv } from "vite";
 
 type ApiHandler = (req: express.Request, res: express.Response) => Promise<unknown> | unknown;
@@ -17,6 +18,7 @@ const loadHandler = async (path: string): Promise<ApiHandler> => {
 };
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.post("/api/reverse-geocode", await loadHandler("/api/reverse-geocode.ts"));
@@ -29,6 +31,9 @@ app.all("/api/monime-checkout-cancel", await loadHandler("/api/monime-checkout-c
 app.post("/api/monime-stk-push", await loadHandler("/api/monime-stk-push.ts"));
 app.post("/api/monime-webhook", await loadHandler("/api/monime-webhook.ts"));
 app.post("/api/send-push-notification", await loadHandler("/api/send-push-notification.ts"));
+app.post("/api/broadcast-ride", await loadHandler("/api/broadcast-ride.ts"));
+app.post("/api/accept-ride", await loadHandler("/api/accept-ride.ts"));
+app.post("/api/decline-ride-invitation", await loadHandler("/api/decline-ride-invitation.ts"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

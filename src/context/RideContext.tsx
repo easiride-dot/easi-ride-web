@@ -6,8 +6,13 @@ export type RideType = "solo" | "shared";
 export type RideStatus =
   | "pending_friend_commitment"
   | "pool_locked_awaiting_driver"
+  | "searching_driver"
   | "pending_driver_acceptance"
   | "driver_assigned"
+  | "driver_arrived"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
   | "paid_and_dispatched";
 
 export interface Ride {

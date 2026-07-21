@@ -98,6 +98,21 @@ const ClaimSeat = () => {
 
       setClaimed(true);
       toast.success("Seat claimed! Waiting for a driver to be assigned.");
+      // Trigger driver broadcast
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || "";
+        const { data: { session } } = await supabase.auth.getSession();
+        await fetch(`${apiBase}/api/broadcast-ride`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ rideId: ride.id }),
+        });
+      } catch {
+        // best-effort
+      }
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
