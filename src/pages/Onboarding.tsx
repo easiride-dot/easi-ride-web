@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
 import { 
-  Smartphone, Bell, MapPin, Car, 
+  Smartphone, Monitor, Bell, MapPin, Car, 
   CheckCircle2, ArrowRight, PartyPopper
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +11,6 @@ import { cn } from "@/lib/utils";
 
 export default function Onboarding() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   
   const [pwaInstalled, setPwaInstalled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -21,9 +19,11 @@ export default function Onboarding() {
   const [checkingPwa, setCheckingPwa] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showSuccessCard, setShowSuccessCard] = useState(false);
-  
+  const deferredPrompt = useRef<any>(null);
+
   const isAndroid = /android/i.test(navigator.userAgent);
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isDesktop = !isAndroid && !isIOS;
 
   useEffect(() => {
     // 1. PWA check
@@ -37,13 +37,36 @@ export default function Onboarding() {
       setPwaInstalled(evt.matches);
     });
 
+    // Listen for the browser install prompt (desktop)
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      deferredPrompt.current = e;
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall as EventListener);
+
     // 2. Notification check
     if (("Notification" in window) && Notification.permission === "granted") {
       setNotificationsEnabled(true);
     }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall as EventListener);
+    };
   }, []);
 
-  const handleCheckPwa = () => {
+  const handleCheckPwa = async () => {
+    // On desktop, try showing the native install prompt first
+    if (isDesktop && deferredPrompt.current) {
+      deferredPrompt.current.prompt();
+      const result = await deferredPrompt.current.userChoice;
+      deferredPrompt.current = null;
+      if (result.outcome === "accepted") {
+        setPwaInstalled(true);
+        toast.success("App installed successfully!");
+      }
+      return;
+    }
+
     setCheckingPwa(true);
     setTimeout(() => {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone);
@@ -100,12 +123,17 @@ export default function Onboarding() {
     if (!user) return;
     setCompleting(true);
     try {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("profiles")
         .update({ onboarding_completed: true })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select("onboarding_completed")
+        .single();
 
       if (error) throw error;
+      if (!updated || updated.onboarding_completed !== true) {
+        throw new Error("Onboarding completion not persisted");
+      }
       
       setShowSuccessCard(true);
     } catch (err) {
@@ -115,7 +143,7 @@ export default function Onboarding() {
   };
   
   const handleContinue = () => {
-    navigate("/trip/book", { replace: true });
+    window.location.href = "/trip/book";
   };
 
   const steps = [
@@ -189,17 +217,25 @@ export default function Onboarding() {
               "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
               pwaInstalled ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white"
             )}>
-              {pwaInstalled ? <CheckCircle2 className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
+              {pwaInstalled ? <CheckCircle2 className="h-6 w-6" /> : isDesktop ? <Monitor className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
             </div>
             <div className="flex-1">
               <h3 className="text-base font-bold text-white mb-1">Install Easi Ride</h3>
               <div className={cn("overflow-hidden transition-all duration-500", pwaInstalled ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100")}>
                 <p className="text-xs text-white/60 mb-4 leading-relaxed">
-                  Install Easi Ride to access rides faster and use the app like a native application.
+                  {isDesktop
+                    ? "Install Easi Ride on your desktop for the fastest experience."
+                    : "Install Easi Ride to access rides faster and use the app like a native application."}
                 </p>
                 <div className="space-y-4">
                   <div className="p-3 bg-black/40 rounded-2xl border border-white/5 text-xs text-white/80 space-y-2">
-                    {isIOS ? (
+                    {isDesktop ? (
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>Click the <b>install icon</b> <ArrowRight className="inline h-3 w-3" /> in the browser address bar</li>
+                        <li>Click <b>Install</b></li>
+                        <li>Launch Easi Ride from your desktop</li>
+                      </ol>
+                    ) : isIOS ? (
                       <ol className="list-decimal pl-4 space-y-1">
                         <li>Tap <b>Share</b> <ArrowRight className="inline h-3 w-3" /></li>
                         <li>Select <b>"Add to Home Screen"</b></li>
@@ -220,7 +256,7 @@ export default function Onboarding() {
                     disabled={checkingPwa}
                     className="w-full py-3.5 bg-white text-black text-sm font-bold rounded-2xl hover:bg-white/90 transition-colors disabled:opacity-50"
                   >
-                    {checkingPwa ? "Checking..." : "I've Installed It"}
+                    {checkingPwa ? "Checking..." : deferredPrompt.current ? "Install Now" : "I've Installed It"}
                   </button>
                 </div>
               </div>
