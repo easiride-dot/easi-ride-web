@@ -61,7 +61,7 @@ const Matching = () => {
   };
 
   const [onlineDrivers, setOnlineDrivers] = useState<any[]>([]);
-  const [pickingDriver, setPickingDriver] = useState(false);
+  const [isPickingDriver, setIsPickingDriver] = useState(false);
 
   // Fetch online drivers when ride is ready for driver selection
   useEffect(() => {
@@ -76,7 +76,7 @@ const Matching = () => {
   // Pick a driver
   const handlePickDriver = async (driverId: string) => {
     if (!ride) return;
-    setPickingDriver(true);
+    setIsPickingDriver(true);
     try {
       const apiBase = import.meta.env.VITE_API_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
@@ -95,7 +95,7 @@ const Matching = () => {
     } catch (e) {
       console.error("Pick driver error:", e);
     } finally {
-      setPickingDriver(false);
+      setIsPickingDriver(false);
     }
   };
 
@@ -246,9 +246,9 @@ const Matching = () => {
                     size="sm"
                     className="rounded-xl shrink-0"
                     onClick={() => handlePickDriver(driver.id)}
-                    disabled={pickingDriver}
+                    disabled={isPickingDriver}
                   >
-                    {pickingDriver ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request"}
+                    {isPickingDriver ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request"}
                   </Button>
                 </div>
               ))
