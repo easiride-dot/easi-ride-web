@@ -61,17 +61,81 @@ const Matching = () => {
   };
 
   const [onlineDrivers, setOnlineDrivers] = useState<any[]>([]);
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [isPickingDriver, setIsPickingDriver] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+  const [excludedDriverIds, setExcludedDriverIds] = useState<string[]>([]);
+  const [showExpiredMessage, setShowExpiredMessage] = useState(false);
 
-  // Fetch online drivers when ride is ready for driver selection
+  // Fetch online drivers and listen for invitation changes
   useEffect(() => {
-    if (!ride || ride.status !== "pool_locked_awaiting_driver") return;
-    const fetchDrivers = async () => {
-      const { data } = await supabase.rpc("get_online_drivers");
-      if (data) setOnlineDrivers(data);
-    };
-    fetchDrivers();
+    if (!ride) return;
+
+    if (ride.status === "pool_locked_awaiting_driver") {
+      setCountdown(30);
+      setShowExpiredMessage(false);
+      setSelectedDriverId(null);
+
+      const fetchDrivers = async () => {
+        const { data } = await supabase.rpc("get_online_drivers");
+        if (data) setOnlineDrivers(data.filter((d: any) => !excludedDriverIds.includes(d.id)));
+      };
+      fetchDrivers();
+
+      const channel = supabase
+        .channel(`ride-invitations-${ride.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "ride_invitations", filter: `ride_id=eq.${ride.id}` },
+          (payload: any) => {
+            const inv = payload.new;
+            if (inv.status === "declined") {
+              setExcludedDriverIds((prev) => [...prev, inv.driver_id]);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
   }, [ride?.id, ride?.status]);
+
+  // Countdown when waiting for driver response
+  useEffect(() => {
+    if (!ride || ride.status !== "searching_driver") return;
+    setCountdown(30);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setShowExpiredMessage(true);
+          handleCancelRequest();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [ride?.id, ride?.status]);
+
+  // Cancel pending request
+  const handleCancelRequest = async () => {
+    if (!ride) return;
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch(`${apiBase}/api/dispatch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ type: "cancel", rideId: ride.id }),
+      });
+    } catch {
+      // best-effort
+    }
+  };
 
   // Pick a driver
   const handlePickDriver = async (driverId: string) => {
@@ -211,6 +275,7 @@ const Matching = () => {
 
   if (pickingDriver) {
     const isOwner = user?.id === ride.userId;
+    const selectedDriver = selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null;
     return (
       <div className="flex flex-col px-5 pt-8 animate-fade-up">
         <h1 className="font-display text-2xl font-semibold tracking-tight">Choose Your Driver</h1>
@@ -228,30 +293,68 @@ const Matching = () => {
                 <p className="text-xs text-muted-foreground mt-1">Please check back or contact support.</p>
               </div>
             ) : (
-              onlineDrivers.map((driver: any) => (
-                <div
-                  key={driver.id}
-                  className="glass-card rounded-2xl p-4 flex items-center gap-4"
-                >
-                  <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <CarFront className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{driver.full_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {driver.vehicle}{driver.plate_number ? ` · ${driver.plate_number}` : ""}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="rounded-xl shrink-0"
-                    onClick={() => handlePickDriver(driver.id)}
-                    disabled={isPickingDriver}
-                  >
-                    {isPickingDriver ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request"}
-                  </Button>
+              <>
+                <div className="space-y-2">
+                  {onlineDrivers.map((driver: any) => {
+                    const isSelected = selectedDriverId === driver.id;
+                    const initial = driver.full_name?.charAt(0)?.toUpperCase() || "D";
+                    return (
+                      <button
+                        key={driver.id}
+                        onClick={() => setSelectedDriverId(isSelected ? null : driver.id)}
+                        className={cn(
+                          "w-full text-left glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200",
+                          isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
+                        )}
+                      >
+                        <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border-2 border-primary/20">
+                          <span className="text-lg font-bold text-primary">{initial}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-base font-semibold text-foreground">{driver.full_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {driver.vehicle}{driver.plate_number ? ` · ${driver.plate_number}` : ""}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[10px] flex items-center gap-0.5 text-amber-400">
+                              ★ 4.8
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">~5 min away</span>
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))
+                {selectedDriver && (
+                  <div className="animate-fade-up space-y-3 pt-2">
+                    <p className="text-sm text-center text-muted-foreground">
+                      You selected <span className="font-semibold text-foreground">{selectedDriver.full_name}</span>.
+                    </p>
+                    <Button
+                      size="lg"
+                      className="w-full rounded-2xl h-14 text-base font-semibold"
+                      onClick={() => handlePickDriver(selectedDriver.id)}
+                      disabled={isPickingDriver}
+                    >
+                      {isPickingDriver ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                      Request Ride
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-muted-foreground"
+                      onClick={() => setSelectedDriverId(null)}
+                    >
+                      Choose Another Driver
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -270,18 +373,68 @@ const Matching = () => {
   }
 
   if (waitingForDriver) {
+    const selectedDriver = selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null;
+    const initial = selectedDriver?.full_name?.charAt(0)?.toUpperCase() || "D";
+    const isUrgent = countdown <= 10;
     return (
-      <div className="flex flex-col items-center justify-center text-center min-h-[70vh] px-5">
-        <div className="relative flex h-24 w-24 items-center justify-center">
-          <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
-          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
-            <Navigation className="h-5 w-5" />
+      <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
+        {showExpiredMessage ? (
+          <div className="flex flex-col items-center justify-center text-center min-h-[60vh]">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+              <Navigation className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Driver did not respond</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              We'll help you find another driver.
+            </p>
           </div>
-        </div>
-        <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Waiting for driver response</h1>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          We've notified your chosen driver. Hang tight while they respond.
-        </p>
+        ) : (
+          <>
+            <div className="relative flex h-24 w-24 items-center justify-center mb-8">
+              <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+                <span className="text-2xl font-bold text-primary">{initial}</span>
+              </div>
+            </div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Finding your driver...</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Waiting for Driver Acceptance</p>
+
+            {selectedDriver && (
+              <div className="mt-6 w-full glass-card rounded-2xl p-4 text-center">
+                <p className="text-base font-semibold text-foreground">{selectedDriver.full_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedDriver.vehicle}{selectedDriver.plate_number ? ` · ${selectedDriver.plate_number}` : ""}
+                </p>
+              </div>
+            )}
+
+            <div className={cn(
+              "mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border transition-colors duration-300",
+              isUrgent ? "border-destructive/50 bg-destructive/10" : "border-hairline bg-secondary"
+            )}>
+              <span className={cn(
+                "text-3xl font-bold font-display tabular-nums leading-none",
+                isUrgent ? "text-destructive" : "text-foreground"
+              )}>
+                {countdown}
+              </span>
+              <span className="text-[8px] uppercase tracking-widest text-muted-foreground">sec</span>
+            </div>
+
+            <p className="mt-6 text-xs text-muted-foreground text-center max-w-xs">
+              If your driver doesn't respond, we'll help you find another one.
+            </p>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-6 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
+              onClick={handleCancelRequest}
+            >
+              Cancel Ride
+            </Button>
+          </>
+        )}
       </div>
     );
   }

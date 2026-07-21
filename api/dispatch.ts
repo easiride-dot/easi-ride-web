@@ -21,7 +21,7 @@ const handleCors = (req: ApiRequest, res: ApiResponse) => {
 };
 
 const bodySchema = z.object({
-  type: z.enum(["pick", "accept", "decline"]),
+  type: z.enum(["pick", "cancel", "accept", "decline"]),
   rideId: z.string().uuid(),
   driverId: z.string().uuid().optional(),
 });
@@ -68,6 +68,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       if (!driverId) return res.status(400).json({ error: "driverId required" });
       return await handlePick(supabase, user, rideId, driverId, res);
     }
+    if (type === "cancel") {
+      return await handleCancel(supabase, user, rideId, res);
+    }
     if (type === "accept") {
       return await handleAccept(supabase, user, rideId, res);
     }
@@ -104,6 +107,14 @@ async function handlePick(supabase: ReturnType<typeof getSupabase>, user: { id: 
     }),
   }).catch(() => {});
 
+  return res.status(200).json({ success: true });
+}
+
+async function handleCancel(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, res: ApiResponse) {
+  const { data, error } = await supabase.rpc("expire_pending_invitations", { p_ride_id: rideId });
+  if (error) return res.status(500).json({ error: `Cancel failed: ${error.message}` });
+  const result = data as { success: boolean; error?: string };
+  if (!result.success) return res.status(400).json({ success: false, error: result.error || "Could not cancel" });
   return res.status(200).json({ success: true });
 }
 
