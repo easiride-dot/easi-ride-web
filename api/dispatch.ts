@@ -84,7 +84,19 @@ async function handleBroadcast(supabase: ReturnType<typeof getSupabase>, user: {
     .maybeSingle();
 
   if (!ride) return res.status(404).json({ error: "Ride not found" });
-  if (ride.user_id !== user.id) return res.status(403).json({ error: "Not your ride" });
+
+  // Allow ride owner OR any participant to broadcast
+  if (ride.user_id !== user.id) {
+    const { count } = await supabase
+      .from("ride_participants")
+      .select("id", { count: "exact", head: true })
+      .eq("ride_id", rideId)
+      .eq("user_id", user.id);
+
+    if (!count || count === 0) {
+      return res.status(403).json({ error: "Not your ride" });
+    }
+  }
 
   const { data, error } = await supabase.rpc("broadcast_ride", { p_ride_id: rideId });
   if (error) return res.status(500).json({ error: `Broadcast failed: ${error.message}` });
