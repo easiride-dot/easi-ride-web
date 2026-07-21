@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell } from "lucide-react";
+import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell, Smartphone } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -37,6 +37,8 @@ const Dashboard = () => {
   const [loadingClaimed, setLoadingClaimed] = useState(true);
   const [payingFor, setPayingFor] = useState<string | null>(null);
   const [pushState, setPushState] = useState<"loading" | "enabled" | "prompt" | "unsupported">("loading");
+  const [isPwaInstalled, setIsPwaInstalled] = useState(true);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
   const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
@@ -103,6 +105,23 @@ const Dashboard = () => {
     });
   }, [user]);
 
+  // Check PWA installation
+  useEffect(() => {
+    const checkPwa = () => {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in navigator && (navigator as any).standalone);
+      setIsPwaInstalled(!!isStandalone);
+    };
+    checkPwa();
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
   const enableNotifications = async () => {
     if (!user) return;
     try {
@@ -111,6 +130,19 @@ const Dashboard = () => {
       toast.success("Push notifications enabled");
     } catch {
       toast.error("Could not enable notifications. Check your browser settings.");
+    }
+  };
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsPwaInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      toast.info("Please use your browser's 'Add to Home Screen' option to install the app.");
     }
   };
 
@@ -166,20 +198,49 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* PWA Install Reminder */}
+      {!isPwaInstalled && (
+        <div className="glass-card rounded-3xl p-5 border border-primary/20 bg-primary/5 shadow-soft">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+              <Smartphone className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-foreground">Install Easi Ride</h3>
+              <p className="text-xs text-muted-foreground mt-1 mb-3">
+                Install Easi Ride for a faster and more reliable experience.
+              </p>
+              <button
+                onClick={handleInstallPwa}
+                className="w-full rounded-2xl bg-foreground py-3 text-sm font-bold text-background hover:bg-foreground/90 transition-colors"
+              >
+                Install
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Push notification prompt */}
       {pushState === "prompt" && (
-        <div className="rounded-2xl p-4 flex gap-3 bg-primary/10 border border-primary/20">
-          <Bell className="h-5 w-5 shrink-0 text-primary" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold">Stay updated</p>
-            <p className="text-xs opacity-80 mt-0.5">Get notified when your driver is assigned</p>
+        <div className="glass-card rounded-3xl p-5 border border-primary/20 bg-primary/5 shadow-soft">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+              <Bell className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-foreground">Enable Notifications</h3>
+              <p className="text-xs text-muted-foreground mt-1 mb-3">
+                Never miss ride updates.
+              </p>
+              <button
+                onClick={enableNotifications}
+                className="w-full rounded-2xl bg-foreground py-3 text-sm font-bold text-background hover:bg-foreground/90 transition-colors"
+              >
+                Enable
+              </button>
+            </div>
           </div>
-          <button
-            onClick={enableNotifications}
-            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
-          >
-            Enable
-          </button>
         </div>
       )}
 

@@ -51,6 +51,7 @@ export type Database = {
           student_id_url: string | null
           updated_at: string
           verification_status: string
+          onboarding_completed: boolean | null
         }
         Insert: {
           campus?: string | null
@@ -61,6 +62,7 @@ export type Database = {
           student_id_url?: string | null
           updated_at?: string
           verification_status?: string
+          onboarding_completed?: boolean | null
         }
         Update: {
           campus?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           student_id_url?: string | null
           updated_at?: string
           verification_status?: string
+          onboarding_completed?: boolean | null
         }
         Relationships: []
       }

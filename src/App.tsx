@@ -24,6 +24,8 @@ import TermsOfService from "./pages/TermsOfService.tsx";
 import TripBooking from "./pages/TripBooking.tsx";
 import ClaimSeat from "./pages/ClaimSeat.tsx";
 
+import Onboarding from "./pages/Onboarding.tsx";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -65,6 +67,7 @@ const App = () => (
                   </ProtectedRoute>
                 }
               >
+                <Route path="/onboarding" element={<Onboarding />} />
                 <Route path="/matching/:id" element={<Matching />} />
                 <Route path="/checkout/weekly" element={<Checkout />} />
                 <Route path="/trip/book" element={<TripBooking />} />
