@@ -21,8 +21,9 @@ const handleCors = (req: ApiRequest, res: ApiResponse) => {
 };
 
 const bodySchema = z.object({
-  type: z.enum(["broadcast", "accept", "decline"]),
+  type: z.enum(["pick", "accept", "decline"]),
   rideId: z.string().uuid(),
+  driverId: z.string().uuid().optional(),
 });
 
 const getEnv = (name: string) => {
@@ -51,7 +52,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.status(400).json({ error: parsed.error.issues[0].message });
   }
 
-  const { type, rideId } = parsed.data;
+  const { type, rideId, driverId } = parsed.data;
 
   const authHeader = req.headers["authorization"];
   if (!authHeader) return res.status(401).json({ error: "Authentication required" });
@@ -63,8 +64,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   if (!user) return res.status(401).json({ error: "Invalid token" });
 
   try {
-    if (type === "broadcast") {
-      return await handleBroadcast(supabase, user, rideId, res);
+    if (type === "pick") {
+      if (!driverId) return res.status(400).json({ error: "driverId required" });
+      return await handlePick(supabase, user, rideId, driverId, res);
     }
     if (type === "accept") {
       return await handleAccept(supabase, user, rideId, res);
@@ -76,63 +78,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 }
 
-async function handleBroadcast(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, res: ApiResponse) {
-  const { data: ride } = await supabase
+async function handlePick(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, driverId: string, res: ApiResponse) {
+  const { data, error } = await supabase.rpc("pick_driver", { p_ride_id: rideId, p_driver_id: driverId });
+  if (error) return res.status(500).json({ error: `Pick failed: ${error.message}` });
+
+  const result = data as { success: boolean; error?: string };
+  if (!result.success) return res.status(400).json({ success: false, error: result.error || "Could not pick driver" });
+
+  // Push notification to the chosen driver
+  const { data: rideInfo } = await supabase
     .from("rides")
-    .select("user_id")
+    .select("pickup, destination")
     .eq("id", rideId)
-    .maybeSingle();
+    .single();
 
-  if (!ride) return res.status(404).json({ error: "Ride not found" });
+  fetch(`${getEnv("SUPABASE_URL")}/functions/v1/send-push-notification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": getEnv("PUSH_NOTIFICATIONS_API_KEY") },
+    body: JSON.stringify({
+      userId: driverId,
+      title: "New Ride Available",
+      message: `${rideInfo?.pickup || "N/A"} → ${rideInfo?.destination || "N/A"}`,
+      type: "ride",
+      url: "/dashboard",
+    }),
+  }).catch(() => {});
 
-  // Allow ride owner OR any participant to broadcast
-  if (ride.user_id !== user.id) {
-    const { count } = await supabase
-      .from("ride_participants")
-      .select("id", { count: "exact", head: true })
-      .eq("ride_id", rideId)
-      .eq("user_id", user.id);
-
-    if (!count || count === 0) {
-      return res.status(403).json({ error: "Not your ride" });
-    }
-  }
-
-  const { data, error } = await supabase.rpc("broadcast_ride", { p_ride_id: rideId });
-  if (error) return res.status(500).json({ error: `Broadcast failed: ${error.message}` });
-
-  const result = data as { success: boolean; driverCount?: number; message?: string };
-
-  if (result.success && result.driverCount && result.driverCount > 0) {
-    const { data: onlineDrivers } = await supabase
-      .from("driver_sessions")
-      .select("driver_id")
-      .eq("is_active", true);
-
-    if (onlineDrivers) {
-      const { data: rideInfo } = await supabase
-        .from("rides")
-        .select("pickup, destination")
-        .eq("id", rideId)
-        .single();
-
-      onlineDrivers.forEach(({ driver_id }) => {
-        fetch(`${getEnv("SUPABASE_URL")}/functions/v1/send-push-notification`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": getEnv("PUSH_NOTIFICATIONS_API_KEY") },
-          body: JSON.stringify({
-            userId: driver_id,
-            title: "New Ride Available",
-            message: `${rideInfo?.pickup || "N/A"} → ${rideInfo?.destination || "N/A"}`,
-            type: "ride",
-            url: "/dashboard",
-          }),
-        }).catch(() => {});
-      });
-    }
-  }
-
-  return res.status(200).json(result);
+  return res.status(200).json({ success: true });
 }
 
 async function handleAccept(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, res: ApiResponse) {

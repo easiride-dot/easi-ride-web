@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Share2, Users, ArrowLeft, MessageSquareWarning } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Share2, Users, ArrowLeft, MessageSquareWarning, CarFront } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,33 +60,44 @@ const Matching = () => {
     }
   };
 
-  // Broadcast to drivers when ride is ready for dispatch
+  const [onlineDrivers, setOnlineDrivers] = useState<any[]>([]);
+  const [pickingDriver, setPickingDriver] = useState(false);
+
+  // Fetch online drivers when ride is ready for driver selection
   useEffect(() => {
-    if (!ride) return;
-    if (ride.status === "pool_locked_awaiting_driver") {
-      const doBroadcast = async () => {
-        try {
-          const apiBase = import.meta.env.VITE_API_URL || "";
-          const { data: { session } } = await supabase.auth.getSession();
-          const res = await fetch(`${apiBase}/api/dispatch`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-            },
-            body: JSON.stringify({ type: "broadcast", rideId: ride.id }),
-          });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            console.error("Broadcast failed:", res.status, err);
-          }
-        } catch (e) {
-          console.error("Broadcast error:", e);
-        }
-      };
-      doBroadcast();
-    }
+    if (!ride || ride.status !== "pool_locked_awaiting_driver") return;
+    const fetchDrivers = async () => {
+      const { data } = await supabase.rpc("get_online_drivers");
+      if (data) setOnlineDrivers(data);
+    };
+    fetchDrivers();
   }, [ride?.id, ride?.status]);
+
+  // Pick a driver
+  const handlePickDriver = async (driverId: string) => {
+    if (!ride) return;
+    setPickingDriver(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || "";
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${apiBase}/api/dispatch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ type: "pick", rideId: ride.id, driverId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Pick driver failed:", res.status, err);
+      }
+    } catch (e) {
+      console.error("Pick driver error:", e);
+    } finally {
+      setPickingDriver(false);
+    }
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -120,7 +131,8 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const waitingForDriver = ride.status === "pool_locked_awaiting_driver" || ride.status === "pending_driver_acceptance" || ride.status === "searching_driver";
+  const pickingDriver = ride.status === "pool_locked_awaiting_driver";
+  const waitingForDriver = ride.status === "searching_driver" || ride.status === "pending_driver_acceptance";
   const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived" || ride.status === "in_progress";
   const isDispatched = ride.status === "paid_and_dispatched" || ride.status === "completed";
   const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
@@ -169,47 +181,107 @@ const Matching = () => {
     );
   }
 
-  if (waitingForSeat || waitingForDriver) {
+  if (waitingForSeat) {
     return (
       <div className="flex flex-col items-center px-5">
-        {waitingForSeat ? (
-          <>
-            <div className="flex flex-col items-center justify-center text-center min-h-[38vh]">
-              <div className="relative flex h-24 w-24 items-center justify-center">
-                <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
-                  <Navigation className="h-5 w-5" />
-                </div>
-              </div>
-              <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Waiting for your friend...</h1>
-              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                Share your invite link so your friend can confirm their seat before we dispatch a driver.
-              </p>
+        <div className="flex flex-col items-center justify-center text-center min-h-[38vh]">
+          <div className="relative flex h-24 w-24 items-center justify-center">
+            <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
+              <Navigation className="h-5 w-5" />
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
-                toast.success("Invite link copied");
-              }}
-              className="mt-6 w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-background border border-hairline text-sm font-semibold text-foreground hover:bg-secondary/30 transition-colors"
-            >
-              <Share2 className="h-4 w-4 text-muted-foreground" /> Invite friends to share fare
-            </button>
-          </>
+          </div>
+          <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Waiting for your friend...</h1>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            Share your invite link so your friend can confirm their seat before we dispatch a driver.
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(`${window.location.origin}/claim/${ride.id}`);
+            toast.success("Invite link copied");
+          }}
+          className="mt-6 w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-background border border-hairline text-sm font-semibold text-foreground hover:bg-secondary/30 transition-colors"
+        >
+          <Share2 className="h-4 w-4 text-muted-foreground" /> Invite friends to share fare
+        </button>
+      </div>
+    );
+  }
+
+  if (pickingDriver) {
+    const isOwner = user?.id === ride.userId;
+    return (
+      <div className="flex flex-col px-5 pt-8 animate-fade-up">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Choose Your Driver</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isOwner
+            ? "Select a driver to request your ride."
+            : "Waiting for the ride owner to select a driver..."}
+        </p>
+        {isOwner ? (
+          <div className="mt-6 space-y-3">
+            {onlineDrivers.length === 0 ? (
+              <div className="flex flex-col items-center text-center py-16">
+                <CarFront className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <p className="text-sm font-medium text-foreground">No drivers online</p>
+                <p className="text-xs text-muted-foreground mt-1">Please check back or contact support.</p>
+              </div>
+            ) : (
+              onlineDrivers.map((driver: any) => (
+                <div
+                  key={driver.id}
+                  className="glass-card rounded-2xl p-4 flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    <CarFront className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{driver.full_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {driver.vehicle}{driver.plate_number ? ` · ${driver.plate_number}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="rounded-xl shrink-0"
+                    onClick={() => handlePickDriver(driver.id)}
+                    disabled={pickingDriver}
+                  >
+                    {pickingDriver ? <Loader2 className="h-4 w-4 animate-spin" /> : "Request"}
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
         ) : (
-          <div className="flex flex-col items-center justify-center text-center min-h-[70vh]">
+          <div className="flex flex-col items-center justify-center text-center min-h-[40vh]">
             <div className="relative flex h-24 w-24 items-center justify-center">
               <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
               <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
                 <Navigation className="h-5 w-5" />
               </div>
             </div>
-            <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Finding a driver...</h1>
-            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-              Hang tight. We're matching you with the closest verified keke headed your way.
-            </p>
+            <p className="mt-6 text-sm text-muted-foreground">The ride owner is selecting a driver...</p>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (waitingForDriver) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center min-h-[70vh] px-5">
+        <div className="relative flex h-24 w-24 items-center justify-center">
+          <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background">
+            <Navigation className="h-5 w-5" />
+          </div>
+        </div>
+        <h1 className="mt-8 font-display text-2xl font-semibold tracking-tight">Waiting for driver response</h1>
+        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+          We've notified your chosen driver. Hang tight while they respond.
+        </p>
       </div>
     );
   }
