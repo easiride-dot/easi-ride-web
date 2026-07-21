@@ -11,7 +11,6 @@ export const ProtectedRoute = ({ children }: Props) => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [verifying, setVerifying] = useState(true);
   const [exists, setExists] = useState(true);
-  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -22,15 +21,14 @@ export const ProtectedRoute = ({ children }: Props) => {
       }
 
       try {
-        // Check if the profile still exists and get onboarding status
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, onboarding_completed")
+          .select("id")
           .eq("id", user.id)
           .maybeSingle();
 
         if (error) {
-          console.error("Profile check failed (network or server):", error);
+          console.error("Profile check failed:", error);
           setExists(true);
         } else if (!data) {
           console.warn("User profile not found, signing out...");
@@ -38,7 +36,6 @@ export const ProtectedRoute = ({ children }: Props) => {
           await signOut();
         } else {
           setExists(true);
-          setOnboardingCompleted(data.onboarding_completed);
         }
       } catch (err) {
         console.error("User verification failed:", err);
@@ -63,16 +60,6 @@ export const ProtectedRoute = ({ children }: Props) => {
 
   if (!user || !exists) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
-  }
-
-  // Handle onboarding redirect
-  if (onboardingCompleted === false && location.pathname !== "/onboarding") {
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  // Prevent accessing onboarding once completed
-  if (onboardingCompleted === true && location.pathname === "/onboarding") {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
