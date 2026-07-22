@@ -19,6 +19,7 @@ const Matching = () => {
   const [initialRide, setInitialRide] = useState<any | null>(null);
   const ride = rides.find((r) => r.id === id) || initialRide;
   const [paying, setPaying] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState<'pending' | 'paid' | 'unknown'>('unknown');
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [snap, setSnap] = useState<number | string | null>(0.85);
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -231,11 +232,27 @@ const Matching = () => {
     }
   };
 
+  // Verify payment status directly from DB to avoid stale context
+  useEffect(() => {
+    if (!ride) return;
+    if (ride.paymentStatus === "paid") {
+      setPaymentVerified("paid");
+      return;
+    }
+    if (["driver_assigned", "paid_and_dispatched", "completed"].includes(ride.status) && ride.paymentType === "trip") {
+      setPaymentVerified("unknown");
+      supabase.from("rides").select("payment_status").eq("id", ride.id).single().then(({ data }) => {
+        setPaymentVerified(data?.payment_status === "paid" ? "paid" : "pending");
+      });
+    } else {
+      setPaymentVerified("pending");
+    }
+  }, [ride?.id]);
+
   useEffect(() => {
     if (!id) return;
     if (ride) {
       setFetchingRide(false);
-      // Refresh ride data to pick up any stale payment status
       refresh();
       return;
     }
@@ -279,7 +296,7 @@ const Matching = () => {
   const waitingForDriver = ride.status === "searching_driver" || ride.status === "pending_driver_acceptance";
   const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived" || ride.status === "in_progress";
   const isDispatched = ride.status === "paid_and_dispatched" || ride.status === "completed";
-  const requiresPayment = ride.paymentType === "trip" && ride.paymentStatus !== "paid";
+  const requiresPayment = ride.paymentType === "trip" && paymentVerified !== "paid";
   const isShared = ride.type === "shared";
   const isFriend = user && ride.userId !== user.id;
   const friendNeedsToPay = isShared && isFriend && requiresPayment && (waitingForSeat || waitingForDriver);
@@ -662,7 +679,14 @@ const Matching = () => {
   }
 
   // Show payment screen after driver accepts (pay-per-trip only)
-  const needsPaymentAfterAccept = (isAssigned || isDispatched) && ride.paymentType === "trip" && ride.paymentStatus !== "paid";
+  const needsPaymentAfterAccept = (isAssigned || isDispatched) && ride.paymentType === "trip" && paymentVerified === "pending";
+  if (paymentVerified === "unknown" && (isAssigned || isDispatched) && ride.paymentType === "trip" && ride.paymentStatus !== "paid") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
   if (needsPaymentAfterAccept) {
     return (
       <div className="flex flex-col px-5 pt-12 animate-fade-up">
