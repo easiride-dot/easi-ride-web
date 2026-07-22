@@ -71,6 +71,7 @@ const Matching = () => {
   const [deliveryState, setDeliveryState] = useState<'idle' | 'submitted' | 'notified' | 'waiting_response' | 'declined' | 'expired' | 'offline'>('idle');
   const [offlineDriverName, setOfflineDriverName] = useState<string | null>(null);
   const [requestedDriver, setRequestedDriver] = useState<any | null>(null);
+  const [confirmDriver, setConfirmDriver] = useState<any | null>(null);
   const countdownStartedRef = useRef(false);
   const invitationIdRef = useRef<string | null>(null);
   const deliveryStateRef = useRef<'idle' | 'submitted' | 'notified' | 'waiting_response' | 'declined' | 'expired' | 'offline'>('idle');
