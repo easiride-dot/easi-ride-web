@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import * as Drawer from "vaul";
-import { Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell, Smartphone, Monitor, X, Share2 } from "lucide-react";
+import { RefreshCw, Plus, MessageCircle, MapPin, Navigation, Calendar, CreditCard, LucideIcon, ShieldQuestion, ShieldAlert, Loader2, CheckCircle2, Bell, Smartphone, Monitor, X, Share2 } from "lucide-react";
 import { formatRelative } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -39,7 +39,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const Dashboard = () => {
-  const { rides } = useRides();
+  const { rides, refresh } = useRides();
   const { subscription } = useSubscription();
   const { profile } = useProfile();
   const { user } = useAuth();
@@ -221,6 +221,9 @@ const Dashboard = () => {
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Your rides</h1>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => refresh()} className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition">
+            <RefreshCw className="h-4 w-4" />
+          </button>
           {subscription ? (
             <Button asChild size="sm" variant="hero">
               <Link to="/request">
