@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { Drawer } from "vaul";
-import { cn, formatNLe } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const Matching = () => {
   const { id } = useParams();
@@ -662,7 +662,7 @@ const Matching = () => {
         </div>
         <div className="glass-card rounded-2xl p-5 mb-6">
           <p className="text-xs text-muted-foreground mb-1">Trip fare</p>
-          <p className="font-display text-3xl font-semibold">{ride.fareAmount ? formatNLe(ride.fareAmount) : `${ride.price} NLe`}</p>
+          <p className="font-display text-3xl font-semibold">{ride.fareAmount ? `${ride.fareAmount} NLe` : `${ride.price} NLe`}</p>
         </div>
         <Button size="lg" className="w-full rounded-2xl h-14 text-base font-semibold" onClick={handlePayForTrip} disabled={paying}>
           {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
