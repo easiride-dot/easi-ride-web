@@ -85,13 +85,13 @@ async function handlePick(supabase: ReturnType<typeof getSupabase>, user: { id: 
   const { data, error } = await supabase.rpc("pick_driver", { p_ride_id: rideId, p_driver_id: driverId });
   if (error) return res.status(500).json({ error: `Pick failed: ${error.message}` });
 
-  const result = data as { success: boolean; error?: string };
+  const result = data as { success: boolean; error?: string; invitation_id?: string };
   if (!result.success) return res.status(400).json({ success: false, error: result.error || "Could not pick driver" });
 
   // Push notification to the chosen driver
   const { data: rideInfo } = await supabase
     .from("rides")
-    .select("pickup, destination")
+    .select("pickup, destination, type")
     .eq("id", rideId)
     .single();
 
@@ -100,14 +100,15 @@ async function handlePick(supabase: ReturnType<typeof getSupabase>, user: { id: 
     headers: { "Content-Type": "application/json", "x-api-key": getEnv("PUSH_NOTIFICATIONS_API_KEY") },
     body: JSON.stringify({
       userId: driverId,
-      title: "New Ride Available",
-      message: `${rideInfo?.pickup || "N/A"} → ${rideInfo?.destination || "N/A"}`,
+      title: "New Ride Request",
+      message: `A passenger selected you for a ride. Tap to respond.`,
       type: "ride",
       url: "/dashboard",
+      data: { rideId, invitationId: result.invitation_id },
     }),
   }).catch(() => {});
 
-  return res.status(200).json({ success: true });
+  return res.status(200).json({ success: true, invitation_id: result.invitation_id });
 }
 
 async function handleCancel(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, res: ApiResponse) {

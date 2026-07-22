@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
-import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Share2, Users, ArrowLeft, MessageSquareWarning, CarFront } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Share2, Users, ArrowLeft, MessageSquareWarning, CarFront, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,6 +66,14 @@ const Matching = () => {
   const [countdown, setCountdown] = useState(30);
   const [excludedDriverIds, setExcludedDriverIds] = useState<string[]>([]);
   const [showExpiredMessage, setShowExpiredMessage] = useState(false);
+  const [invitationId, setInvitationId] = useState<string | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<string | null>(null);
+  const [deliveryState, setDeliveryState] = useState<'idle' | 'submitted' | 'notified' | 'waiting_response' | 'declined' | 'expired' | 'offline'>('idle');
+  const [offlineDriverName, setOfflineDriverName] = useState<string | null>(null);
+  const [requestedDriver, setRequestedDriver] = useState<any | null>(null);
+  const countdownStartedRef = useRef(false);
+  const invitationIdRef = useRef<string | null>(null);
+  const deliveryStateRef = useRef<'idle' | 'submitted' | 'notified' | 'waiting_response' | 'declined' | 'expired' | 'offline'>('idle');
 
   // Fetch online drivers and listen for invitation changes
   useEffect(() => {
@@ -75,6 +83,12 @@ const Matching = () => {
       setCountdown(30);
       setShowExpiredMessage(false);
       setSelectedDriverId(null);
+      setInvitationId(null);
+      setNotificationStatus(null);
+      setDeliveryState('idle');
+      setRequestedDriver(null);
+      setOfflineDriverName(null);
+      countdownStartedRef.current = false;
 
       const fetchDrivers = async () => {
         const { data } = await supabase.rpc("get_online_drivers");
@@ -89,8 +103,22 @@ const Matching = () => {
           { event: "*", schema: "public", table: "ride_invitations", filter: `ride_id=eq.${ride.id}` },
           (payload: any) => {
             const inv = payload.new;
+            const currentInvId = invitationIdRef.current;
+            const currentDeliveryState = deliveryStateRef.current;
+
             if (inv.status === "declined") {
               setExcludedDriverIds((prev) => [...prev, inv.driver_id]);
+              if (currentInvId && inv.id === currentInvId) {
+                setDeliveryState('declined');
+                deliveryStateRef.current = 'declined';
+              }
+            }
+            if (currentInvId && inv.id === currentInvId) {
+              setNotificationStatus(inv.notification_status);
+              if (inv.notification_status === 'delivered' && currentDeliveryState === 'submitted') {
+                setDeliveryState('notified');
+                deliveryStateRef.current = 'notified';
+              }
             }
           }
         )
@@ -100,15 +128,21 @@ const Matching = () => {
     }
   }, [ride?.id, ride?.status]);
 
-  // Countdown when waiting for driver response
+  // Countdown — starts only after driver acknowledges
   useEffect(() => {
-    if (!ride || ride.status !== "searching_driver") return;
+    if (deliveryState !== 'notified') return;
+    if (countdownStartedRef.current) return;
+    countdownStartedRef.current = true;
     setCountdown(30);
+    setShowExpiredMessage(false);
+
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
           setShowExpiredMessage(true);
+          setDeliveryState('expired');
+          deliveryStateRef.current = 'expired';
           handleCancelRequest();
           return 0;
         }
@@ -116,7 +150,7 @@ const Matching = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [ride?.id, ride?.status]);
+  }, [deliveryState]);
 
   // Cancel pending request
   const handleCancelRequest = async () => {
@@ -141,6 +175,17 @@ const Matching = () => {
   const handlePickDriver = async (driverId: string) => {
     if (!ride) return;
     setIsPickingDriver(true);
+    setOfflineDriverName(null);
+    setDeliveryState('idle');
+    setInvitationId(null);
+    setNotificationStatus(null);
+    countdownStartedRef.current = false;
+    invitationIdRef.current = null;
+    deliveryStateRef.current = 'idle';
+
+    const driver = onlineDrivers.find((d: any) => d.id === driverId);
+    setRequestedDriver(driver || null);
+
     try {
       const apiBase = import.meta.env.VITE_API_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
@@ -152,14 +197,27 @@ const Matching = () => {
         },
         body: JSON.stringify({ type: "pick", rideId: ride.id, driverId }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error("Pick driver failed:", res.status, err);
-        toast.error(err?.error || "Failed to request driver. Try again.");
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        const errorMsg = result?.error || "Failed to request driver.";
+        if (errorMsg.toLowerCase().includes("not online") || errorMsg.toLowerCase().includes("unavailable")) {
+          setOfflineDriverName(driver?.full_name || "Driver");
+          setDeliveryState('offline');
+        } else {
+          toast.error(errorMsg);
+        }
         return;
       }
+      // Track the invitation
+      if (result.invitation_id) {
+        setInvitationId(result.invitation_id);
+        invitationIdRef.current = result.invitation_id;
+      }
+      setDeliveryState('submitted');
+      deliveryStateRef.current = 'submitted';
     } catch (e) {
       console.error("Pick driver error:", e);
+      toast.error("Network error. Please try again.");
     } finally {
       setIsPickingDriver(false);
     }
@@ -197,7 +255,7 @@ const Matching = () => {
   if (loading || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
-  const pickingDriver = ride.status === "pool_locked_awaiting_driver";
+  const pickingDriver = ride.status === "pool_locked_awaiting_driver" && deliveryState === 'idle';
   const waitingForDriver = ride.status === "searching_driver" || ride.status === "pending_driver_acceptance";
   const isAssigned = ride.status === "driver_assigned" || ride.status === "driver_arrived" || ride.status === "in_progress";
   const isDispatched = ride.status === "paid_and_dispatched" || ride.status === "completed";
@@ -374,13 +432,75 @@ const Matching = () => {
     );
   }
 
-  if (waitingForDriver) {
-    const selectedDriver = selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null;
+  if (waitingForDriver || deliveryState === 'submitted' || deliveryState === 'notified' || deliveryState === 'offline' || deliveryState === 'declined' || deliveryState === 'expired') {
+    const selectedDriver = requestedDriver || (selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null);
     const initial = selectedDriver?.full_name?.charAt(0)?.toUpperCase() || "D";
     const isUrgent = countdown <= 10;
-    return (
-      <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
-        {showExpiredMessage ? (
+
+    // Driver offline error
+    if (deliveryState === 'offline') {
+      return (
+        <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
+          <div className="flex flex-col items-center justify-center text-center min-h-[60vh]">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Driver Unavailable</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {offlineDriverName || "Your selected driver"} is currently unavailable.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Please choose another driver.
+            </p>
+            <Button
+              size="lg"
+              className="mt-8 w-full rounded-2xl h-14 text-base font-semibold"
+              onClick={() => {
+                setDeliveryState('idle');
+                deliveryStateRef.current = 'idle';
+                setSelectedDriverId(null);
+              }}
+            >
+              Choose Another Driver
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Declined by driver
+    if (deliveryState === 'declined') {
+      return (
+        <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
+          <div className="flex flex-col items-center justify-center text-center min-h-[60vh]">
+            <div className="h-16 w-16 rounded-full bg-amber-500/10 flex items-center justify-center mb-6">
+              <Navigation className="h-8 w-8 text-amber-400" />
+            </div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Driver declined</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {selectedDriver?.full_name || "The driver"} declined your request.
+            </p>
+            <Button
+              size="lg"
+              className="mt-8 w-full rounded-2xl h-14 text-base font-semibold"
+              onClick={() => {
+                setDeliveryState('idle');
+                deliveryStateRef.current = 'idle';
+                setSelectedDriverId(null);
+                setShowExpiredMessage(false);
+              }}
+            >
+              Choose Another Driver
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Expired / No response
+    if (deliveryState === 'expired' || showExpiredMessage) {
+      return (
+        <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
           <div className="flex flex-col items-center justify-center text-center min-h-[60vh]">
             <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mb-6">
               <Navigation className="h-8 w-8 text-destructive" />
@@ -389,54 +509,122 @@ const Matching = () => {
             <p className="mt-2 text-sm text-muted-foreground">
               We'll help you find another driver.
             </p>
-          </div>
-        ) : (
-          <>
-            <div className="relative flex h-24 w-24 items-center justify-center mb-8">
-              <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
-                <span className="text-2xl font-bold text-primary">{initial}</span>
-              </div>
-            </div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Finding your driver...</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Waiting for Driver Acceptance</p>
-
-            {selectedDriver && (
-              <div className="mt-6 w-full glass-card rounded-2xl p-4 text-center">
-                <p className="text-base font-semibold text-foreground">{selectedDriver.full_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedDriver.vehicle}{selectedDriver.plate_number ? ` · ${selectedDriver.plate_number}` : ""}
-                </p>
-              </div>
-            )}
-
-            <div className={cn(
-              "mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border transition-colors duration-300",
-              isUrgent ? "border-destructive/50 bg-destructive/10" : "border-hairline bg-secondary"
-            )}>
-              <span className={cn(
-                "text-3xl font-bold font-display tabular-nums leading-none",
-                isUrgent ? "text-destructive" : "text-foreground"
-              )}>
-                {countdown}
-              </span>
-              <span className="text-[8px] uppercase tracking-widest text-muted-foreground">sec</span>
-            </div>
-
-            <p className="mt-6 text-xs text-muted-foreground text-center max-w-xs">
-              If your driver doesn't respond, we'll help you find another one.
-            </p>
-
             <Button
-              variant="outline"
-              size="sm"
-              className="mt-6 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
-              onClick={handleCancelRequest}
+              size="lg"
+              className="mt-8 w-full rounded-2xl h-14 text-base font-semibold"
+              onClick={() => {
+                setDeliveryState('idle');
+                deliveryStateRef.current = 'idle';
+                setSelectedDriverId(null);
+                setShowExpiredMessage(false);
+                countdownStartedRef.current = false;
+              }}
             >
-              Cancel Ride
+              Choose Another Driver
             </Button>
-          </>
+          </div>
+        </div>
+      );
+    }
+
+    // Active delivery timeline
+    return (
+      <div className="flex flex-col items-center px-5 pt-12 animate-fade-up">
+        {/* Driver avatar */}
+        <div className="relative flex h-24 w-24 items-center justify-center mb-8">
+          <span className="absolute inline-flex h-full w-full animate-ping-slow rounded-full bg-foreground/20" />
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+            <span className="text-2xl font-bold text-primary">{initial}</span>
+          </div>
+        </div>
+
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
+          {deliveryState === 'submitted' ? 'Contacting driver...' : 'Finding your driver...'}
+        </h1>
+
+        {selectedDriver && (
+          <div className="mt-4 w-full glass-card rounded-2xl p-4 text-center">
+            <p className="text-base font-semibold text-foreground">{selectedDriver.full_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {selectedDriver.vehicle}{selectedDriver.plate_number ? ` · ${selectedDriver.plate_number}` : ""}
+            </p>
+          </div>
         )}
+
+        {/* Timeline */}
+        <div className="mt-8 w-full max-w-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Ride Submitted</p>
+              <p className="text-[10px] text-muted-foreground">Request sent to driver</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+              deliveryState === 'submitted' ? "bg-muted border border-hairline" : "bg-emerald-500/20"
+            )}>
+              {deliveryState === 'notified' ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <Clock className={cn("h-4 w-4", deliveryState === 'submitted' ? "text-muted-foreground" : "text-emerald-400")} />
+              )}
+            </div>
+            <div>
+              <p className={cn(
+                "text-sm",
+                deliveryState === 'submitted' ? "text-muted-foreground" : "font-medium text-foreground"
+              )}>Driver Notified</p>
+              <p className="text-[10px] text-muted-foreground">
+                {deliveryState === 'submitted' ? "Waiting for delivery..." : "Driver received your request"}
+              </p>
+            </div>
+          </div>
+          {deliveryState === 'notified' && (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-foreground/10 flex items-center justify-center shrink-0">
+                  <Clock className="h-4 w-4 text-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Waiting for Response</p>
+                  <p className="text-[10px] text-muted-foreground">Driver has 30 seconds to respond</p>
+                </div>
+              </div>
+
+              <div className={cn(
+                "mt-4 flex h-16 w-16 mx-auto flex-col items-center justify-center rounded-2xl border transition-colors duration-300",
+                isUrgent ? "border-destructive/50 bg-destructive/10" : "border-hairline bg-secondary"
+              )}>
+                <span className={cn(
+                  "text-3xl font-bold font-display tabular-nums leading-none",
+                  isUrgent ? "text-destructive" : "text-foreground"
+                )}>
+                  {countdown}
+                </span>
+                <span className="text-[8px] uppercase tracking-widest text-muted-foreground">sec</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {deliveryState === 'notified' && (
+          <p className="mt-6 text-xs text-muted-foreground text-center max-w-xs">
+            If your driver doesn't respond, we'll help you find another one.
+          </p>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-6 rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
+          onClick={handleCancelRequest}
+        >
+          Cancel Ride
+        </Button>
       </div>
     );
   }
