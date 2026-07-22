@@ -56,7 +56,7 @@ const Dashboard = () => {
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const activeStatuses = ["searching_driver", "pool_locked_awaiting_driver", "pending_driver_acceptance", "driver_assigned", "driver_arrived", "in_progress"];
+  const activeStatuses = ["searching_driver", "pool_locked_awaiting_driver"];
   const completedStatuses = ["completed", "paid_and_dispatched", "cancelled"];
   const upcomingSub = rides.filter((r) => !activeStatuses.includes(r.status) && !completedStatuses.includes(r.status) && r.paymentType === "subscription");
   const upcomingTrip = rides.filter((r) => !activeStatuses.includes(r.status) && !completedStatuses.includes(r.status) && r.paymentType === "trip");
