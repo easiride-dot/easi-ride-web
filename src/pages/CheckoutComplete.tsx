@@ -51,6 +51,11 @@ const CheckoutComplete = () => {
 
       if (result?.status === "completed") {
         setState("completed");
+        if (result.rideId) {
+          setMessage("Payment confirmed! Taking you to your ride.");
+          setTimeout(() => navigate(`/matching/${result.rideId}`), 1500);
+          return;
+        }
         setMessage("Payment confirmed. Your weekly subscription is active.");
         return;
       }
