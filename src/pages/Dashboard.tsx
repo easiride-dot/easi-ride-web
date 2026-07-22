@@ -56,8 +56,9 @@ const Dashboard = () => {
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const upcomingSub = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
-  const upcomingTrip = rides.filter((r) => r.status !== "paid_and_dispatched" && r.paymentType === "trip");
+  const activeStatuses = ["searching_driver", "pool_locked_awaiting_driver"];
+  const upcomingSub = rides.filter((r) => !activeStatuses.includes(r.status) && r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
+  const upcomingTrip = rides.filter((r) => !activeStatuses.includes(r.status) && r.status !== "paid_and_dispatched" && r.paymentType === "trip");
   const past = rides.filter((r) => r.status === "paid_and_dispatched");
 
   const daysLeft = subscription
@@ -341,6 +342,36 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Active searching_driver ride */}
+      {(() => {
+        const activeRide = rides.find((r) => r.status === "searching_driver" || r.status === "pool_locked_awaiting_driver");
+        if (!activeRide) return null;
+        return (
+          <div className="rounded-2xl p-5 border-2 border-primary/30 bg-primary/5 shadow-soft">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                </div>
+                <span className="text-sm font-semibold text-foreground">Finding your driver</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">{formatRelative(activeRide.createdAt)}</span>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1 mb-4">
+              <p className="truncate">{activeRide.pickup} → {activeRide.destination}</p>
+              <p className="capitalize">{activeRide.type} · {activeRide.timeSlot}</p>
+            </div>
+            <Button
+              size="sm"
+              className="w-full rounded-xl h-10 text-xs font-semibold"
+              onClick={() => navigate(`/matching/${activeRide.id}`)}
+            >
+              Resume
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Subscription Rides */}
       {subscription && (

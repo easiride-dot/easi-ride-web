@@ -338,14 +338,17 @@ const Matching = () => {
     const selectedDriver = selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null;
     return (
       <div className="flex flex-col px-5 pt-8 animate-fade-up">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Choose Your Driver</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {isOwner
-            ? "Select a driver to request your ride."
-            : "Waiting for the ride owner to select a driver..."}
-        </p>
+        <div className="flex items-center gap-4 mb-2">
+          <button onClick={() => navigate(-1)} className="h-10 w-10 rounded-xl bg-secondary/50 flex items-center justify-center">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Available Drivers</h1>
+            <p className="text-sm text-muted-foreground">{onlineDrivers.length} driver{onlineDrivers.length !== 1 ? 's' : ''} online</p>
+          </div>
+        </div>
         {isOwner ? (
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-3 flex-1">
             {onlineDrivers.length === 0 ? (
               <div className="flex flex-col items-center text-center py-16">
                 <CarFront className="h-12 w-12 text-muted-foreground/40 mb-4" />
@@ -353,20 +356,12 @@ const Matching = () => {
                 <p className="text-xs text-muted-foreground mt-1">Please check back or contact support.</p>
               </div>
             ) : (
-              <>
-                <div className="space-y-2">
-                  {onlineDrivers.map((driver: any) => {
-                    const isSelected = selectedDriverId === driver.id;
-                    const initial = driver.full_name?.charAt(0)?.toUpperCase() || "D";
-                    return (
-                      <button
-                        key={driver.id}
-                        onClick={() => setSelectedDriverId(isSelected ? null : driver.id)}
-                        className={cn(
-                          "w-full text-left glass-card rounded-2xl p-4 flex items-center gap-4 transition-all duration-200",
-                          isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02]"
-                        )}
-                      >
+              <div className="space-y-2">
+                {onlineDrivers.map((driver: any) => {
+                  const initial = driver.full_name?.charAt(0)?.toUpperCase() || "D";
+                  return (
+                    <div key={driver.id} className="glass-card rounded-2xl p-4">
+                      <div className="flex items-center gap-4">
                         <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border-2 border-primary/20">
                           <span className="text-lg font-bold text-primary">{initial}</span>
                         </div>
@@ -376,9 +371,7 @@ const Matching = () => {
                             {driver.vehicle}{driver.plate_number ? ` · ${driver.plate_number}` : ""}
                           </p>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] flex items-center gap-0.5 text-amber-400">
-                              ★ 4.8
-                            </span>
+                            <span className="text-[10px] flex items-center gap-0.5 text-amber-400">★ 4.8</span>
                             <span className="text-[10px] text-muted-foreground">~5 min away</span>
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -386,35 +379,18 @@ const Matching = () => {
                             </span>
                           </div>
                         </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedDriver && (
-                  <div className="animate-fade-up space-y-3 pt-2">
-                    <p className="text-sm text-center text-muted-foreground">
-                      You selected <span className="font-semibold text-foreground">{selectedDriver.full_name}</span>.
-                    </p>
-                    <Button
-                      size="lg"
-                      className="w-full rounded-2xl h-14 text-base font-semibold"
-                      onClick={() => handlePickDriver(selectedDriver.id)}
-                      disabled={isPickingDriver}
-                    >
-                      {isPickingDriver ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                      Request Ride
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-muted-foreground"
-                      onClick={() => setSelectedDriverId(null)}
-                    >
-                      Choose Another Driver
-                    </Button>
-                  </div>
-                )}
-              </>
+                        <Button
+                          size="sm"
+                          className="rounded-xl shrink-0"
+                          onClick={() => setConfirmDriver(driver)}
+                        >
+                          Request
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         ) : (
@@ -426,6 +402,42 @@ const Matching = () => {
               </div>
             </div>
             <p className="mt-6 text-sm text-muted-foreground">The ride owner is selecting a driver...</p>
+          </div>
+        )}
+
+        {/* Confirmation overlay */}
+        {confirmDriver && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-background rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up">
+              <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-hairline sm:hidden" />
+              <div className="text-center">
+                <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
+                  <span className="text-2xl font-bold text-primary">{confirmDriver.full_name?.charAt(0)?.toUpperCase() || "D"}</span>
+                </div>
+                <h2 className="mt-4 font-display text-xl font-semibold">Confirm Driver</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{confirmDriver.full_name}</p>
+                <p className="text-xs text-muted-foreground">{confirmDriver.vehicle}{confirmDriver.plate_number ? ` · ${confirmDriver.plate_number}` : ""}</p>
+              </div>
+              <div className="mt-6 space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full rounded-2xl h-14 text-base font-semibold"
+                  onClick={() => { handlePickDriver(confirmDriver.id); setConfirmDriver(null); }}
+                  disabled={isPickingDriver}
+                >
+                  {isPickingDriver ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                  Send Request
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => setConfirmDriver(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
