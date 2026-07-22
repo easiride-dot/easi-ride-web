@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { Drawer } from "vaul";
-import { cn } from "@/lib/utils";
+import { cn, formatNLe } from "@/lib/utils";
 
 const Matching = () => {
   const { id } = useParams();
@@ -107,20 +107,25 @@ const Matching = () => {
             const currentInvId = invitationIdRef.current;
             const currentDeliveryState = deliveryStateRef.current;
 
-            if (inv.status === "declined") {
-              setExcludedDriverIds((prev) => [...prev, inv.driver_id]);
+              if (inv.status === "declined") {
+                setExcludedDriverIds((prev) => [...prev, inv.driver_id]);
+                if (currentInvId && inv.id === currentInvId) {
+                  setDeliveryState('declined');
+                  deliveryStateRef.current = 'declined';
+                }
+              }
+              if (inv.status === "accepted" && currentInvId && inv.id === currentInvId) {
+                setDeliveryState('idle');
+                deliveryStateRef.current = 'idle';
+                setNotificationStatus('accepted');
+              }
               if (currentInvId && inv.id === currentInvId) {
-                setDeliveryState('declined');
-                deliveryStateRef.current = 'declined';
+                setNotificationStatus(inv.notification_status);
+                if (inv.notification_status === 'delivered' && currentDeliveryState === 'submitted') {
+                  setDeliveryState('notified');
+                  deliveryStateRef.current = 'notified';
+                }
               }
-            }
-            if (currentInvId && inv.id === currentInvId) {
-              setNotificationStatus(inv.notification_status);
-              if (inv.notification_status === 'delivered' && currentDeliveryState === 'submitted') {
-                setDeliveryState('notified');
-                deliveryStateRef.current = 'notified';
-              }
-            }
           }
         )
         .subscribe();
@@ -445,7 +450,7 @@ const Matching = () => {
     );
   }
 
-  if (waitingForDriver || deliveryState === 'submitted' || deliveryState === 'notified' || deliveryState === 'offline' || deliveryState === 'declined' || deliveryState === 'expired') {
+  if (!isAssigned && !isDispatched && (waitingForDriver || deliveryState === 'submitted' || deliveryState === 'notified' || deliveryState === 'offline' || deliveryState === 'declined' || deliveryState === 'expired')) {
     const selectedDriver = requestedDriver || (selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null);
     const initial = selectedDriver?.full_name?.charAt(0)?.toUpperCase() || "D";
     const isUrgent = countdown <= 10;
@@ -637,6 +642,31 @@ const Matching = () => {
           onClick={handleCancelRequest}
         >
           Cancel Ride
+        </Button>
+      </div>
+    );
+  }
+
+  // Show payment screen after driver accepts (pay-per-trip only)
+  const needsPaymentAfterAccept = (isAssigned || isDispatched) && ride.paymentType === "trip" && ride.paymentStatus !== "paid";
+  if (needsPaymentAfterAccept) {
+    return (
+      <div className="flex flex-col px-5 pt-12 animate-fade-up">
+        <div className="flex-1 flex flex-col items-center justify-center text-center min-h-[50vh]">
+          <div className="h-16 w-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-6 border-2 border-emerald-500/20">
+            <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+          </div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Driver Assigned</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{ride.driverName} is on the way</p>
+          {ride.vehicle && <p className="text-xs text-muted-foreground mt-1">{ride.vehicle}</p>}
+        </div>
+        <div className="glass-card rounded-2xl p-5 mb-6">
+          <p className="text-xs text-muted-foreground mb-1">Trip fare</p>
+          <p className="font-display text-3xl font-semibold">{ride.fareAmount ? formatNLe(ride.fareAmount) : `${ride.price} NLe`}</p>
+        </div>
+        <Button size="lg" className="w-full rounded-2xl h-14 text-base font-semibold" onClick={handlePayForTrip} disabled={paying}>
+          {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+          Pay Now
         </Button>
       </div>
     );
