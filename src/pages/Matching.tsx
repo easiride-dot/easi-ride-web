@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
 const Matching = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { rides, loading } = useRides();
+  const { rides, loading, refresh } = useRides();
   const { user } = useAuth();
-  const ride = rides.find((r) => r.id === id);
+  const [initialRide, setInitialRide] = useState<any | null>(null);
+  const ride = rides.find((r) => r.id === id) || initialRide;
   const [paying, setPaying] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [snap, setSnap] = useState<number | string | null>(0.85);
@@ -72,6 +73,7 @@ const Matching = () => {
   const [offlineDriverName, setOfflineDriverName] = useState<string | null>(null);
   const [requestedDriver, setRequestedDriver] = useState<any | null>(null);
   const [confirmDriver, setConfirmDriver] = useState<any | null>(null);
+  const [fetchingRide, setFetchingRide] = useState(true);
   const countdownStartedRef = useRef(false);
   const invitationIdRef = useRef<string | null>(null);
   const deliveryStateRef = useRef<'idle' | 'submitted' | 'notified' | 'waiting_response' | 'declined' | 'expired' | 'offline'>('idle');
@@ -230,9 +232,16 @@ const Matching = () => {
   };
 
   useEffect(() => {
-    if (loading) return;
-    if (!ride) navigate("/dashboard");
-  }, [ride?.id, loading, navigate]);
+    if (!id) return;
+    if (ride) { setFetchingRide(false); return; }
+    if (!loading) {
+      refresh();
+      supabase.from("rides").select("*").eq("id", id).maybeSingle().then(({ data }) => {
+        if (!data) { navigate("/dashboard"); return; }
+        setFetchingRide(false);
+      });
+    }
+  }, [ride?.id, id, loading, navigate, refresh, ride]);
 
   useEffect(() => {
     if (!ride) return;
@@ -258,7 +267,7 @@ const Matching = () => {
     }
   }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude]);
 
-  if (loading || !ride) return null;
+  if (fetchingRide || !ride) return null;
 
   const waitingForSeat = ride.status === "pending_friend_commitment";
   const pickingDriver = ride.status === "pool_locked_awaiting_driver" && deliveryState === 'idle';
