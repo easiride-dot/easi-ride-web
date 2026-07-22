@@ -233,7 +233,12 @@ const Matching = () => {
 
   useEffect(() => {
     if (!id) return;
-    if (ride) { setFetchingRide(false); return; }
+    if (ride) {
+      setFetchingRide(false);
+      // Refresh ride data to pick up any stale payment status
+      refresh();
+      return;
+    }
     if (!loading) {
       refresh();
       supabase.from("rides").select("*").eq("id", id).maybeSingle().then(({ data }) => {
