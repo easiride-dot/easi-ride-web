@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easi-ride-v2';
+const CACHE_NAME = 'easi-ride-v3';
 const precacheManifest = self.__WB_MANIFEST || [];
 const urlsToCache = [
   '/',
@@ -8,6 +8,7 @@ const urlsToCache = [
 
 // Install event - cache app shell
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -70,7 +71,7 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
