@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, Edit3 } from "lucide-react";
+import { ChevronRight, Bell, Shield, MapPin, CreditCard, LogOut, HelpCircle, ShieldAlert, ShieldCheck, ShieldQuestion, Upload, Edit3, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ const items = [
 
 const Account = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { profile, refresh } = useProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -223,6 +225,20 @@ const Account = () => {
       </div>
 
       <div className="glass-card divide-y divide-hairline/60 overflow-hidden rounded-2xl">
+        <button
+          onClick={toggleTheme}
+          className="w-full flex items-center gap-4 p-4 transition hover:bg-secondary/30 text-left"
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary border border-hairline">
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </div>
+          <span className="flex-1 text-sm">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </button>
         {items.map((it) => (
           <Link
             key={it.label}
