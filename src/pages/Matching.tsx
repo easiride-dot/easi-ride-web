@@ -137,30 +137,6 @@ const Matching = () => {
     }
   }, [ride?.id, ride?.status]);
 
-  // Countdown — starts only after driver acknowledges
-  useEffect(() => {
-    if (deliveryState !== 'notified') return;
-    if (countdownStartedRef.current) return;
-    countdownStartedRef.current = true;
-    setCountdown(30);
-    setShowExpiredMessage(false);
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setShowExpiredMessage(true);
-          setDeliveryState('expired');
-          deliveryStateRef.current = 'expired';
-          handleCancelRequest();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [deliveryState]);
-
   // Cancel pending request
   const handleCancelRequest = async () => {
     if (!ride) return;
@@ -179,6 +155,40 @@ const Matching = () => {
       // best-effort
     }
   };
+
+  // Ref for stable access to handleCancelRequest in effects
+  const handleCancelRequestRef = useRef(handleCancelRequest);
+  handleCancelRequestRef.current = handleCancelRequest;
+
+  // Countdown — starts only after driver acknowledges
+  useEffect(() => {
+    if (deliveryState !== 'notified') return;
+    if (countdownStartedRef.current) return;
+    countdownStartedRef.current = true;
+    setCountdown(30);
+    setShowExpiredMessage(false);
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [deliveryState]);
+
+  // Handle countdown expiry separately to avoid state updater side effects
+  useEffect(() => {
+    if (countdown === 0 && deliveryState === 'notified') {
+      setShowExpiredMessage(true);
+      setDeliveryState('expired');
+      deliveryStateRef.current = 'expired';
+      handleCancelRequestRef.current();
+    }
+  }, [countdown, deliveryState]);
 
   // Pick a driver
   const handlePickDriver = async (driverId: string) => {
@@ -301,7 +311,7 @@ const Matching = () => {
   const isFriend = user && ride.userId !== user.id;
   const friendNeedsToPay = isShared && isFriend && requiresPayment && (waitingForSeat || waitingForDriver);
 
-  const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
+  const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
   const userShare = Math.round((ride.fareAmount || ride.price) / 3);
 
   const STUDENT_STATUS_CONFIG: Record<string, { label: string; sublabel: string; color: string; bgColor: string }> = {
@@ -852,7 +862,7 @@ const Matching = () => {
 
                 {/* Emergency */}
                 <button
-                  onClick={() => window.open(`https://wa.me/23278000000?text=EMERGENCY: I need help with my Easi Ride. Ride ID: ${ride.id}`, "_blank")}
+                  onClick={() => window.open(`https://wa.me/23272804884?text=EMERGENCY: I need help with my Easi Ride. Ride ID: ${ride.id}`, "_blank")}
                   className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-destructive hover:bg-destructive/90 transition-colors shadow-[0_0_20px_rgba(239,68,68,0.3)]"
                 >
                   <MessageSquareWarning className="h-5 w-5 text-white" />

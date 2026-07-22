@@ -33,9 +33,11 @@ export default function Onboarding() {
     };
     checkPwa();
 
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', (evt) => {
+    const mql = window.matchMedia('(display-mode: standalone)');
+    const handleModeChange = (evt: MediaQueryListEvent) => {
       setPwaInstalled(evt.matches);
-    });
+    };
+    mql.addEventListener('change', handleModeChange);
 
     // Listen for the browser install prompt (desktop)
     const onBeforeInstall = (e: Event) => {
@@ -50,6 +52,7 @@ export default function Onboarding() {
     }
 
     return () => {
+      mql.removeEventListener('change', handleModeChange);
       window.removeEventListener('beforeinstallprompt', onBeforeInstall as EventListener);
     };
   }, []);

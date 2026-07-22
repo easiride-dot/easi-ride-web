@@ -60,6 +60,8 @@ export function MapDisplay({
       return;
     }
 
+    let cancelled = false;
+
     const fetchRoute = async () => {
       setLoadingRoute(true);
       try {
@@ -70,6 +72,8 @@ export function MapDisplay({
         const res = await fetch(url);
         const data = await res.json();
 
+        if (cancelled) return;
+
         if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
           const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
             ([lon, lat]: [number, number]) => [lat, lon]
@@ -79,13 +83,16 @@ export function MapDisplay({
           setRoutePoints([pickupCoords, campusCoords]);
         }
       } catch {
-        setRoutePoints([pickupCoords, campusCoords]);
+        if (!cancelled) {
+          setRoutePoints([pickupCoords, campusCoords]);
+        }
       } finally {
-        setLoadingRoute(false);
+        if (!cancelled) setLoadingRoute(false);
       }
     };
 
     fetchRoute();
+    return () => { cancelled = true; };
   }, [pickupCoords, campusCoords]);
 
   useEffect(() => {
@@ -94,6 +101,8 @@ export function MapDisplay({
       return;
     }
 
+    let cancelled = false;
+
     const fetchDriverRoute = async () => {
       const [dLat, dLon] = driverCoords;
       const [pLat, pLon] = pickupCoords;
@@ -101,6 +110,7 @@ export function MapDisplay({
       try {
         const res = await fetch(url);
         const data = await res.json();
+        if (cancelled) return;
         if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
           const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
             ([lon, lat]: [number, number]) => [lat, lon]
@@ -110,11 +120,14 @@ export function MapDisplay({
           setDriverRoutePoints([driverCoords, pickupCoords]);
         }
       } catch {
-        setDriverRoutePoints([driverCoords, pickupCoords]);
+        if (!cancelled) {
+          setDriverRoutePoints([driverCoords, pickupCoords]);
+        }
       }
     };
 
     fetchDriverRoute();
+    return () => { cancelled = true; };
   }, [driverCoords, pickupCoords]);
 
   const handleCoordsChange = useCallback(async (lat: number, lon: number) => {

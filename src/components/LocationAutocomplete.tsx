@@ -37,6 +37,8 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
 
   // Debounced search
   useEffect(() => {
+    let cancelled = false;
+
     const fetchSuggestions = async () => {
       if (!value || value.length < 3) {
         setSuggestions([]);
@@ -55,6 +57,8 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 
+        if (cancelled) return;
+
         const { ok, data, error } = await parseApiJson<{ suggestions?: LocationSuggestion[]; error?: string }>(res);
 
         if (!ok) {
@@ -66,9 +70,9 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
           setSuggestions(data.suggestions);
         }
       } catch (err) {
-        console.error("Failed to fetch suggestions", err);
+        if (!cancelled) console.error("Failed to fetch suggestions", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -76,7 +80,10 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
       fetchSuggestions();
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [value, showDropdown]);
 
   const handleSelect = (s: LocationSuggestion) => {

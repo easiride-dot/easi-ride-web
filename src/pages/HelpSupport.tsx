@@ -46,7 +46,7 @@ const HelpSupport = () => {
 
       {/* Contact Options */}
       <div className="grid grid-cols-2 gap-4">
-        <a href="tel:+23276123456" className="glass-card flex flex-col items-center justify-center gap-3 rounded-2xl p-6 transition hover:bg-secondary/30">
+        <a href="tel:+23272804884" className="glass-card flex flex-col items-center justify-center gap-3 rounded-2xl p-6 transition hover:bg-secondary/30">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Phone className="h-6 w-6 text-primary" />
           </div>

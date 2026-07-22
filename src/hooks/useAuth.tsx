@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { subscribeToPushNotifications } from "@/lib/pushNotifications";
@@ -28,6 +28,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(existing);
       setUser(existing?.user ?? null);
       cleanAuthTokensFromUrl();
+    }).catch(() => {
+      setLoading(false);
+    }).finally(() => {
       setLoading(false);
     });
 
@@ -39,9 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     subscribeIfPossible(user.id);
   }, [user]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, signOut }}>

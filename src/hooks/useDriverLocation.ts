@@ -45,7 +45,7 @@ export function useDriverLocation(driverId?: string) {
         },
         (payload) => {
           const newRow = payload.new as any;
-          if (newRow && newRow.latitude && newRow.longitude) {
+          if (newRow && newRow.latitude != null && newRow.longitude != null) {
             setLocation({
               latitude: newRow.latitude,
               longitude: newRow.longitude,

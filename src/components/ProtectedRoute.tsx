@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,8 +12,17 @@ export const ProtectedRoute = ({ children }: Props) => {
   const [verifying, setVerifying] = useState(true);
   const [exists, setExists] = useState(true);
   const location = useLocation();
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Reset state when user changes
+    const currentUserId = user?.id ?? null;
+    if (userIdRef.current !== currentUserId) {
+      userIdRef.current = currentUserId;
+      setVerifying(true);
+      setExists(true);
+    }
+
     const checkUserExists = async () => {
       if (!user) {
         setVerifying(false);
@@ -26,6 +35,9 @@ export const ProtectedRoute = ({ children }: Props) => {
           .select("id")
           .eq("id", user.id)
           .maybeSingle();
+
+        // Check if user changed during the async check
+        if (userIdRef.current !== user.id) return;
 
         if (error) {
           console.error("Profile check failed:", error);
@@ -41,7 +53,9 @@ export const ProtectedRoute = ({ children }: Props) => {
         console.error("User verification failed:", err);
         setExists(true);
       } finally {
-        setVerifying(false);
+        if (userIdRef.current === user.id) {
+          setVerifying(false);
+        }
       }
     };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Navigation, Clock, Users, User, ArrowRight, Locate, ShieldAlert } from "lucide-react";
+import { MapPin, Navigation, Clock, Users, User, ArrowRight, Locate, ShieldAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useColleges } from "@/hooks/useColleges";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { parseApiJson } from "@/lib/parseApiResponse";
 
 const Request = () => {
   const navigate = useNavigate();
@@ -32,12 +34,50 @@ const Request = () => {
     }
   }, [colleges, destination]);
 
-  const detect = () => {
-    setPickup("Wilkinson Road, near junction");
-    toast.success("Location detected");
-  };
-
   const [submitting, setSubmitting] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+
+  const detect = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported.");
+      return;
+    }
+    setDetecting(true);
+    const toastId = toast.loading("Detecting your location...");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          const response = await fetch("/api/reverse-geocode", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ lat: latitude, lon: longitude }),
+          });
+          const { ok, data, error } = await parseApiJson<{ placeName?: string; error?: string }>(response);
+          if (ok && data?.placeName) {
+            setPickup(data.placeName);
+            toast.success("Location detected", { id: toastId });
+          } else {
+            toast.error(error || "Could not detect location", { id: toastId });
+          }
+        } catch {
+          toast.error("Failed to detect location", { id: toastId });
+        } finally {
+          setDetecting(false);
+        }
+      },
+      () => {
+        toast.error("Please allow location access in your browser settings.", { id: toastId });
+        setDetecting(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,10 +206,11 @@ const Request = () => {
                 <button
                   type="button"
                   onClick={detect}
-                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
+                  disabled={detecting}
+                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Detect my location"
                 >
-                  <Locate className="h-4 w-4" />
+                  {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />}
                 </button>
               </div>
               <div className="border-t border-hairline/60" />
@@ -233,10 +274,11 @@ const Request = () => {
                 <button
                   type="button"
                   onClick={detect}
-                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground"
+                  disabled={detecting}
+                  className="rounded-lg border border-hairline bg-secondary/50 p-2 text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Detect my location"
                 >
-                  <Locate className="h-4 w-4" />
+                  {detecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Locate className="h-4 w-4" />}
                 </button>
               </div>
             </>

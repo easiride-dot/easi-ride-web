@@ -26,42 +26,47 @@ const CheckoutComplete = () => {
     }
 
     const verifyPayment = async () => {
-      setState("checking");
-      setMessage("Confirming your payment...");
+      try {
+        setState("checking");
+        setMessage("Confirming your payment...");
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      const response = await fetch("/api/monime-verify-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({ orderId }),
-      });
+        const response = await fetch("/api/monime-verify-checkout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ orderId }),
+        });
 
-      const result = await response.json().catch(() => null);
-      if (!response.ok) {
-        setState("failed");
-        setMessage(result?.error || "We could not verify your payment.");
-        return;
-      }
-
-      if (result?.status === "completed") {
-        setState("completed");
-        if (result.rideId) {
-          setMessage("Payment confirmed! Taking you to your ride.");
-          setTimeout(() => navigate(`/matching/${result.rideId}`), 1500);
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          setState("failed");
+          setMessage(result?.error || "We could not verify your payment.");
           return;
         }
-        setMessage("Payment confirmed. Your weekly subscription is active.");
-        return;
-      }
 
-      setState("pending");
-      setMessage("Your payment is not complete yet. If you already paid, wait a moment and refresh this page.");
+        if (result?.status === "completed") {
+          setState("completed");
+          if (result.rideId) {
+            setMessage("Payment confirmed! Taking you to your ride.");
+            setTimeout(() => navigate(`/matching/${result.rideId}`), 1500);
+            return;
+          }
+          setMessage("Payment confirmed. Your weekly subscription is active.");
+          return;
+        }
+
+        setState("pending");
+        setMessage("Your payment is not complete yet. If you already paid, wait a moment and refresh this page.");
+      } catch {
+        setState("failed");
+        setMessage("Something went wrong. Please try again.");
+      }
     };
 
     verifyPayment();

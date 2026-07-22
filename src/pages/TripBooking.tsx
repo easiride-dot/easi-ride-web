@@ -147,7 +147,7 @@ const TripBooking = () => {
         setOriginLon(result.originCoords.lon);
       }
     } catch {
-      // Silently handle errors
+      toast.error("Could not calculate fare. Please try again.");
     } finally {
       setCalculating(false);
     }
@@ -180,13 +180,20 @@ const TripBooking = () => {
         });
 
       if (error) {
+        toast.error(error.message || "Failed to create ride. Please try again.");
+        return;
+      }
+
+      if (!data) {
+        toast.error("Could not create ride. Please try again.");
         return;
       }
 
       toast.success("Ride requested successfully!");
       navigate(`/matching/${data.id}`);
     } catch (err) {
-      // Silently handle errors
+      toast.error("Something went wrong. Please try again.");
+      console.error("Booking error:", err);
     } finally {
       setBooking(false);
     }

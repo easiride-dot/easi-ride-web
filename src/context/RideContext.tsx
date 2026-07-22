@@ -191,7 +191,11 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
       .eq("id", id)
       .select()
       .single();
-    if (!error && row) {
+    if (error) {
+      console.error("assignDriver error:", error);
+      throw new Error(error.message);
+    }
+    if (row) {
       const updated = mapRow(row);
       setRides((prev) => prev.map((r) => (r.id === id ? updated : r)));
     }

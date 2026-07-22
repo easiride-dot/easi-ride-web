@@ -56,10 +56,11 @@ const Dashboard = () => {
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  const activeStatuses = ["searching_driver", "pool_locked_awaiting_driver"];
-  const upcomingSub = rides.filter((r) => !activeStatuses.includes(r.status) && r.status !== "paid_and_dispatched" && r.paymentType === "subscription");
-  const upcomingTrip = rides.filter((r) => !activeStatuses.includes(r.status) && r.status !== "paid_and_dispatched" && r.paymentType === "trip");
-  const past = rides.filter((r) => r.status === "paid_and_dispatched");
+  const activeStatuses = ["searching_driver", "pool_locked_awaiting_driver", "pending_driver_acceptance", "driver_assigned", "driver_arrived", "in_progress"];
+  const completedStatuses = ["completed", "paid_and_dispatched", "cancelled"];
+  const upcomingSub = rides.filter((r) => !activeStatuses.includes(r.status) && !completedStatuses.includes(r.status) && r.paymentType === "subscription");
+  const upcomingTrip = rides.filter((r) => !activeStatuses.includes(r.status) && !completedStatuses.includes(r.status) && r.paymentType === "trip");
+  const past = rides.filter((r) => completedStatuses.includes(r.status));
 
   const daysLeft = subscription
     ? Math.max(0, differenceInDays(new Date(subscription.end_date), new Date()))
@@ -329,7 +330,7 @@ const Dashboard = () => {
               <div className="mt-6 grid grid-cols-3 gap-4 border-t border-hairline/70 pt-4 text-sm">
                 <Stat icon={Calendar} label="Rides this week" value={`${subscription.rides_used} / ${subscription.rides_limit}`} />
                 <Stat icon={CreditCard} label="Renews" value={new Date(subscription.end_date).toLocaleDateString('en-US', { weekday: 'short' })} />
-                <Stat icon={Navigation} label="Saved trips" value="2" />
+                <Stat icon={Navigation} label="Saved trips" value={String(past.length)} />
               </div>
             </>
           ) : (
@@ -600,7 +601,7 @@ const Stat = ({ icon: Icon, label, value }: { icon: LucideIcon; label: string; v
 
 const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number] }) => {
   const navigate = useNavigate();
-  const wa = ride.driverPhone?.replace(/\D/g, "") ?? "23278000000";
+  const wa = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
   
   const handleCardClick = () => {
     if (ride.status !== "paid_and_dispatched") {
