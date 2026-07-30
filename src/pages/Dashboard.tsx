@@ -607,7 +607,7 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
   const wa = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
   
   const handleCardClick = () => {
-    if (ride.status !== "paid_and_dispatched") {
+    if (ride.status !== "cancelled") {
       navigate(`/matching/${ride.id}`);
     }
   };
@@ -615,7 +615,7 @@ const RideCard = ({ ride }: { ride: ReturnType<typeof useRides>["rides"][number]
   return (
     <div
       onClick={handleCardClick}
-      className={`glass-card group block rounded-2xl p-5 transition ${ride.status !== "paid_and_dispatched" ? "cursor-pointer hover:shadow-elevated" : ""}`}
+      className={`glass-card group block rounded-2xl p-5 transition ${ride.status !== "cancelled" ? "cursor-pointer hover:shadow-elevated" : ""}`}
     >
       <div className="flex items-center justify-between">
         <span className={`rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider ${statusStyles[ride.status] ?? "bg-secondary text-muted-foreground"}`}>
