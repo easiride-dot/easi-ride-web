@@ -384,7 +384,7 @@ const Matching = () => {
     const isOwner = user?.id === ride.userId;
     const selectedDriver = selectedDriverId ? onlineDrivers.find((d: any) => d.id === selectedDriverId) : null;
     return (
-      <div className="flex flex-col px-5 pt-8 animate-fade-up">
+      <div className="flex flex-col min-h-screen px-5 pt-8 animate-fade-up">
         <div className="flex items-center gap-4 mb-2">
           <button onClick={() => navigate(-1)} className="h-10 w-10 rounded-xl bg-secondary/50 flex items-center justify-center">
             <ArrowLeft className="h-5 w-5" />
@@ -454,8 +454,8 @@ const Matching = () => {
 
         {/* Confirmation overlay */}
         {confirmDriver && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-            <div className="w-full max-w-md bg-background rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+            <div className="w-full max-w-md bg-background rounded-3xl p-6 animate-slide-up">
               <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-hairline sm:hidden" />
               <div className="text-center">
                 <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
