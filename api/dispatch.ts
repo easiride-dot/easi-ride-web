@@ -82,7 +82,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 }
 
 async function handlePick(supabase: ReturnType<typeof getSupabase>, user: { id: string }, rideId: string, driverId: string, res: ApiResponse) {
-  const { data, error } = await supabase.rpc("pick_driver", { p_ride_id: rideId, p_driver_id: driverId });
+  const { data, error } = await supabase.rpc("pick_driver", { p_ride_id: rideId, p_driver_id: driverId, p_user_id: user.id });
   if (error) return res.status(500).json({ error: `Pick failed: ${error.message}` });
 
   const result = data as { success: boolean; error?: string; invitation_id?: string };
