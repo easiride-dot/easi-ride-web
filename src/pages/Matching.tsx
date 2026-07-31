@@ -293,6 +293,9 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
   useEffect(() => {
     if (!ride || colleges.length === 0) return;
 
+    useEffect(() => {
+    if (!ride || colleges.length === 0) return;
+
     const findCollegeCoords = (address: string | undefined) => {
       if (!address) return null;
       const addrLower = address.toLowerCase();
@@ -301,7 +304,11 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
         addrLower.includes(c.name.toLowerCase()) ||
         addrLower.includes(c.name.toLowerCase().split(" ")[0])
       );
-      if (college) return { lat: college.lat, lon: college.lon };
+      if (college) {
+        console.log("[Matching] Matched:", address, "->", college.name, college.lat, college.lon);
+        return { lat: college.lat, lon: college.lon };
+      }
+      console.log("[Matching] No match for:", address);
       return null;
     };
 
