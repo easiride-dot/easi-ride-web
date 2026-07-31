@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRides } from "@/context/RideContext";
 import { Button } from "@/components/ui/button";
@@ -290,11 +290,21 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
     return null;
   };
 
-  const pickupCollegeCoords = useMemo(() => findCollegeCoords(ride?.pickup, colleges), [ride?.pickup, colleges]);
-  const destCollegeCoords = useMemo(() => findCollegeCoords(ride?.destination, colleges), [ride?.destination, colleges]);
-
   useEffect(() => {
-    if (!ride) return;
+    if (!ride || colleges.length === 0) return;
+
+    const findCollegeCoords = (address: string | undefined) => {
+      if (!address) return null;
+      const addrLower = address.toLowerCase();
+      const college = colleges.find((c) => 
+        c.name.toLowerCase().includes(addrLower) || 
+        addrLower.includes(c.name.toLowerCase()) ||
+        addrLower.includes(c.name.toLowerCase().split(" ")[0])
+      );
+      if (college) return { lat: college.lat, lon: college.lon };
+      return null;
+    };
+
     const geocode = async (address: string) => {
       try {
         const res = await fetch(
@@ -307,6 +317,7 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
     };
 
     // Pickup
+    const pickupCollegeCoords = findCollegeCoords(ride.pickup);
     if (pickupCollegeCoords) {
       setPickupCoords(pickupCollegeCoords);
     } else if (!ride.pickupLatitude && ride.pickup) {
@@ -316,6 +327,7 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
     }
 
     // Destination
+    const destCollegeCoords = findCollegeCoords(ride.destination);
     if (destCollegeCoords) {
       setCampusCoords(destCollegeCoords);
     } else if (!ride.destinationLatitude && ride.destination) {
@@ -323,7 +335,7 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
     } else if (ride.destinationLatitude && ride.destinationLongitude) {
       setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
     }
-  }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude, pickupCollegeCoords, destCollegeCoords]);
+  }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude, colleges]);
 
   if (fetchingRide || !ride) return null;
 
