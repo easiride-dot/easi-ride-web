@@ -301,6 +301,7 @@ useEffect(() => {
     const findCollegeCoords = (address: string | undefined) => {
       if (!address) return null;
       const addrLower = address.toLowerCase();
+      console.log("[Matching] findCollegeCoords called with:", address, "colleges:", colleges.map(c => c.name));
       const college = colleges.find((c) => 
         c.name.toLowerCase().includes(addrLower) || 
         addrLower.includes(c.name.toLowerCase()) ||
@@ -310,6 +311,7 @@ useEffect(() => {
         console.log("[Matching] College match:", college.name, "for:", address);
         return { lat: college.lat, lon: college.lon };
       }
+      console.log("[Matching] No college match for:", address);
       return null;
     };
 
