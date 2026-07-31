@@ -279,7 +279,12 @@ const Matching = () => {
   }, [ride?.id, id, loading, navigate, refresh, ride]);
 
 useEffect(() => {
-    if (!ride || colleges.length === 0) return;
+    const collegeNames = colleges.map(c => c.name);
+    console.log("[Matching] Effect running, ride:", ride?.id, "colleges:", colleges.length, collegeNames);
+    if (!ride || colleges.length === 0) {
+      console.log("[Matching] Skipping - no ride or colleges not loaded");
+      return;
+    }
     const geocode = async (address: string) => {
       try {
         const res = await fetch(
