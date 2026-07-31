@@ -20,6 +20,7 @@ const Request = () => {
   const { profile, loading: profileLoading } = useProfile();
 
   const [pickup, setPickup] = useState("");
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [destination, setDestination] = useState("");
   const [timeSlot, setTimeSlot] = useState("08:00");
   const [isReturnTrip, setIsReturnTrip] = useState(false);
@@ -61,6 +62,7 @@ const Request = () => {
           const { ok, data, error } = await parseApiJson<{ placeName?: string; error?: string }>(response);
           if (ok && data?.placeName) {
             setPickup(data.placeName);
+            setPickupCoords({ lat: latitude, lon: longitude });
             toast.success("Location detected", { id: toastId });
           } else {
             toast.error(error || "Could not detect location", { id: toastId });
@@ -104,7 +106,9 @@ const Request = () => {
         destination: isReturnTrip ? customLocation : destination,
         timeSlot,
         type: rideType,
-        price: 0
+        price: 0,
+        pickupLatitude: pickupCoords?.lat,
+        pickupLongitude: pickupCoords?.lon,
       });
 
       if (!ride) {

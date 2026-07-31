@@ -153,6 +153,8 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
         p_time_slot: data.timeSlot,
         p_type: data.type,
         p_price: data.price,
+        p_pickup_latitude: data.pickupLatitude,
+        p_pickup_longitude: data.pickupLongitude,
       })
 
     if (error) {

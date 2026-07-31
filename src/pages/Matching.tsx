@@ -278,7 +278,7 @@ const Matching = () => {
     }
   }, [ride?.id, id, loading, navigate, refresh, ride]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!ride) return;
     const geocode = async (address: string) => {
       try {
@@ -286,8 +286,15 @@ const Matching = () => {
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=sl`
         );
         const data = await res.json();
-        if (data?.[0]) return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-      } catch {}
+        if (data?.[0]) {
+          const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+          console.log("[Matching] Geocoded:", address, "->", coords);
+          return coords;
+        }
+        console.warn("[Matching] Geocode returned no results for:", address);
+      } catch (e) {
+        console.error("[Matching] Geocode error for", address, e);
+      }
       return null;
     };
 
@@ -298,19 +305,20 @@ const Matching = () => {
       setPickupCoords({ lat: ride.pickupLatitude, lon: ride.pickupLongitude });
     }
 
-    // Destination: try college coordinates first, then stored coordinates, then geocode
-    const destName = ride.destination?.trim().toLowerCase();
-    const college = colleges.find((c) => c.name.trim().toLowerCase() === destName);
+    // Destination: try fuzzy college match first, then stored coords, then geocode
+    const destLower = ride.destination?.toLowerCase() ?? "";
+    const college = colleges.find((c) => 
+      c.name.toLowerCase().includes(destLower) || 
+      destLower.includes(c.name.toLowerCase()) ||
+      destLower.includes(c.name.toLowerCase().split(" ")[0]) // e.g. "Hill Station" matches "IPAM Tower Hill"
+    );
     if (college) {
-      console.log("[Matching] Found college coords for destination:", ride.destination, college);
+      console.log("[Matching] College match:", college.name, "for destination:", ride.destination);
       setCampusCoords({ lat: college.lat, lon: college.lon });
-    } else {
-      console.log("[Matching] No college match for destination:", ride.destination, "colleges:", colleges.map(c => c.name));
-      if (!ride.destinationLatitude && ride.destination) {
-        geocode(ride.destination).then(setCampusCoords);
-      } else if (ride.destinationLatitude && ride.destinationLongitude) {
-        setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
-      }
+    } else if (!ride.destinationLatitude && ride.destination) {
+      geocode(ride.destination).then(setCampusCoords);
+    } else if (ride.destinationLatitude && ride.destinationLongitude) {
+      setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
     }
   }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude, colleges]);
 
