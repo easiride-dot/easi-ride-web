@@ -15,9 +15,7 @@ export const useColleges = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchColleges = useCallback(async () => {
-    console.log("[useColleges] fetchColleges called, user:", user?.id);
     if (!user) {
-      console.log("[useColleges] No user, returning empty");
       setColleges([]);
       setLoading(false);
       return;
@@ -28,7 +26,6 @@ export const useColleges = () => {
       .select("id, name, lat, lon")
       .order("name", { ascending: true });
 
-    console.log("[useColleges] Query result:", { data: data?.length, error });
     if (!error && data) {
       setColleges(data as College[]);
     }
