@@ -279,7 +279,7 @@ const Matching = () => {
   }, [ride?.id, id, loading, navigate, refresh, ride]);
 
 useEffect(() => {
-    if (!ride) return;
+    if (!ride || colleges.length === 0) return;
     const geocode = async (address: string) => {
       try {
         const res = await fetch(
