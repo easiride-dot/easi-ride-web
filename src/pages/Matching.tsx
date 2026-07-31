@@ -10,6 +10,7 @@ import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { Drawer } from "vaul";
 import { cn } from "@/lib/utils";
+import { haversineKm } from "@/lib/haversine";
 
 const Matching = () => {
   const { id } = useParams();
@@ -311,8 +312,19 @@ const Matching = () => {
   const isFriend = user && ride.userId !== user.id;
   const friendNeedsToPay = isShared && isFriend && requiresPayment && (waitingForSeat || waitingForDriver);
 
-  const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
-  const userShare = Math.round((ride.fareAmount || ride.price) / 3);
+   const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
+
+   const pickupLat = pickupCoords?.lat ?? ride.pickupLatitude;
+   const pickupLon = pickupCoords?.lon ?? ride.pickupLongitude;
+   const campusLat = campusCoords?.lat ?? ride.destinationLatitude;
+   const campusLon = campusCoords?.lon ?? ride.destinationLongitude;
+   const tripDistance = pickupLat && pickupLon && campusLat && campusLon
+     ? haversineKm(pickupLat, pickupLon, campusLat, campusLon)
+     : null;
+   const calculatedFare = tripDistance != null ? Math.ceil(tripDistance * 10) : null;
+    const effectiveFare = ride.fareAmount ?? (ride.price || calculatedFare);
+
+   const userShare = Math.round((effectiveFare ?? 0) / 3);
 
   const STUDENT_STATUS_CONFIG: Record<string, { label: string; sublabel: string; color: string; bgColor: string }> = {
     driver_assigned: {
@@ -710,7 +722,7 @@ const Matching = () => {
         </div>
         <div className="glass-card rounded-2xl p-5 mb-6">
           <p className="text-xs text-muted-foreground mb-1">Trip fare</p>
-          <p className="font-display text-3xl font-semibold">{ride.fareAmount ? `${ride.fareAmount} NLe` : `${ride.price} NLe`}</p>
+          <p className="font-display text-3xl font-semibold">{effectiveFare != null ? `${effectiveFare} NLe` : "—"}</p>
         </div>
         <Button size="lg" className="w-full rounded-2xl h-14 text-base font-semibold" onClick={handlePayForTrip} disabled={paying}>
           {paying ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
@@ -775,15 +787,21 @@ const Matching = () => {
                   )}
                 </div>
 
-                {/* Fare / Payment card */}
-                <div className="rounded-2xl bg-background border border-hairline p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-muted-foreground">Trip fare</span>
-                    <span className="font-display text-lg font-bold text-foreground">
-                      {ride.price != null ? `${ride.price} NLe` : "—"}
-                    </span>
-                  </div>
-                  {isShared && (
+{/* Fare / Payment card */}
+                 <div className="rounded-2xl bg-background border border-hairline p-4">
+                   <div className="flex items-center justify-between mb-3">
+                     <span className="text-xs text-muted-foreground">Trip fare</span>
+                     <span className="font-display text-lg font-bold text-foreground">
+                       {effectiveFare != null ? `${effectiveFare} NLe` : "—"}
+                     </span>
+                   </div>
+                   {tripDistance != null && (
+                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                       <span>Distance</span>
+                       <span className="font-semibold text-foreground">{tripDistance.toFixed(1)} km</span>
+                     </div>
+                   )}
+                   {isShared && (
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Your share</span>
                       <span className="font-semibold text-foreground">{userShare} NLe</span>
@@ -820,7 +838,7 @@ const Matching = () => {
                   <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4">
                     <p className="text-xs text-amber-400 mb-3">Driver is waiting! Pay to confirm your ride.</p>
                     <button onClick={handlePayForTrip} disabled={paying} className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 transition-colors text-white text-sm font-bold disabled:opacity-50">
-                      {paying ? <Loader2 className="h-5 w-5 animate-spin" /> : `Pay ${isShared ? userShare : ride.price} NLe`}
+                      {paying ? <Loader2 className="h-5 w-5 animate-spin" /> : `Pay ${isShared ? userShare : effectiveFare ?? 0} NLe`}
                     </button>
                   </div>
                 )}
