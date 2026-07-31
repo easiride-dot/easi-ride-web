@@ -6,6 +6,7 @@ import { Phone, MessageCircle, MapPin, Navigation, User, LucideIcon, Loader2, Sh
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useColleges } from "@/hooks/useColleges";
 import { MapDisplay } from "@/components/MapDisplay";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { Drawer } from "vaul";
@@ -17,6 +18,7 @@ const Matching = () => {
   const navigate = useNavigate();
   const { rides, loading, refresh } = useRides();
   const { user } = useAuth();
+  const { colleges } = useColleges();
   const [initialRide, setInitialRide] = useState<any | null>(null);
   const ride = rides.find((r) => r.id === id) || initialRide;
   const [paying, setPaying] = useState(false);
@@ -288,17 +290,29 @@ const Matching = () => {
       } catch {}
       return null;
     };
+
+    // Pickup: use stored coordinates or geocode
     if (!ride.pickupLatitude && ride.pickup) {
       geocode(ride.pickup).then(setPickupCoords);
     } else if (ride.pickupLatitude && ride.pickupLongitude) {
       setPickupCoords({ lat: ride.pickupLatitude, lon: ride.pickupLongitude });
     }
-    if (!ride.destinationLatitude && ride.destination) {
-      geocode(ride.destination).then(setCampusCoords);
-    } else if (ride.destinationLatitude && ride.destinationLongitude) {
-      setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
+
+    // Destination: try college coordinates first, then stored coordinates, then geocode
+    const destName = ride.destination?.trim().toLowerCase();
+    const college = colleges.find((c) => c.name.trim().toLowerCase() === destName);
+    if (college) {
+      console.log("[Matching] Found college coords for destination:", ride.destination, college);
+      setCampusCoords({ lat: college.lat, lon: college.lon });
+    } else {
+      console.log("[Matching] No college match for destination:", ride.destination, "colleges:", colleges.map(c => c.name));
+      if (!ride.destinationLatitude && ride.destination) {
+        geocode(ride.destination).then(setCampusCoords);
+      } else if (ride.destinationLatitude && ride.destinationLongitude) {
+        setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
+      }
     }
-  }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude]);
+  }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude, colleges]);
 
   if (fetchingRide || !ride) return null;
 
@@ -314,14 +328,15 @@ const Matching = () => {
 
    const waNumber = ride.driverPhone?.replace(/\D/g, "") ?? "23272804884";
 
-   const pickupLat = pickupCoords?.lat ?? ride.pickupLatitude;
-   const pickupLon = pickupCoords?.lon ?? ride.pickupLongitude;
-   const campusLat = campusCoords?.lat ?? ride.destinationLatitude;
-   const campusLon = campusCoords?.lon ?? ride.destinationLongitude;
-   const tripDistance = pickupLat && pickupLon && campusLat && campusLon
-     ? haversineKm(pickupLat, pickupLon, campusLat, campusLon)
-     : null;
-   const calculatedFare = tripDistance != null ? Math.ceil(tripDistance * 10) : null;
+const pickupLat = pickupCoords?.lat ?? ride.pickupLatitude;
+    const pickupLon = pickupCoords?.lon ?? ride.pickupLongitude;
+    const campusLat = campusCoords?.lat ?? ride.destinationLatitude;
+    const campusLon = campusCoords?.lon ?? ride.destinationLongitude;
+    const tripDistance = pickupLat && pickupLon && campusLat && campusLon
+      ? haversineKm(pickupLat, pickupLon, campusLat, campusLon)
+      : null;
+    console.log("[Matching] Distance calc:", { pickupLat, pickupLon, campusLat, campusLon, tripDistance });
+    const calculatedFare = tripDistance != null ? Math.ceil(tripDistance * 10) : null;
     const effectiveFare = ride.fareAmount ?? (ride.price || calculatedFare);
 
    const userShare = Math.round((effectiveFare ?? 0) / 3);
