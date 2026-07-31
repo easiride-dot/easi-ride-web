@@ -298,23 +298,35 @@ useEffect(() => {
       return null;
     };
 
-    // Pickup: use stored coordinates or geocode
-    if (!ride.pickupLatitude && ride.pickup) {
+    const findCollegeCoords = (address: string | undefined) => {
+      if (!address) return null;
+      const addrLower = address.toLowerCase();
+      const college = colleges.find((c) => 
+        c.name.toLowerCase().includes(addrLower) || 
+        addrLower.includes(c.name.toLowerCase()) ||
+        addrLower.includes(c.name.toLowerCase().split(" ")[0])
+      );
+      if (college) {
+        console.log("[Matching] College match:", college.name, "for:", address);
+        return { lat: college.lat, lon: college.lon };
+      }
+      return null;
+    };
+
+    // Pickup: try college coords first, then stored coords, then geocode
+    const pickupCollegeCoords = findCollegeCoords(ride.pickup);
+    if (pickupCollegeCoords) {
+      setPickupCoords(pickupCollegeCoords);
+    } else if (!ride.pickupLatitude && ride.pickup) {
       geocode(ride.pickup).then(setPickupCoords);
     } else if (ride.pickupLatitude && ride.pickupLongitude) {
       setPickupCoords({ lat: ride.pickupLatitude, lon: ride.pickupLongitude });
     }
 
-    // Destination: try fuzzy college match first, then stored coords, then geocode
-    const destLower = ride.destination?.toLowerCase() ?? "";
-    const college = colleges.find((c) => 
-      c.name.toLowerCase().includes(destLower) || 
-      destLower.includes(c.name.toLowerCase()) ||
-      destLower.includes(c.name.toLowerCase().split(" ")[0]) // e.g. "Hill Station" matches "IPAM Tower Hill"
-    );
-    if (college) {
-      console.log("[Matching] College match:", college.name, "for destination:", ride.destination);
-      setCampusCoords({ lat: college.lat, lon: college.lon });
+    // Destination: try college coords first, then stored coords, then geocode
+    const destCollegeCoords = findCollegeCoords(ride.destination);
+    if (destCollegeCoords) {
+      setCampusCoords(destCollegeCoords);
     } else if (!ride.destinationLatitude && ride.destination) {
       geocode(ride.destination).then(setCampusCoords);
     } else if (ride.destinationLatitude && ride.destinationLongitude) {
