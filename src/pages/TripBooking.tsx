@@ -112,10 +112,6 @@ const TripBooking = () => {
     const campusLat = selectedCollege?.lat;
     const campusLon = selectedCollege?.lon;
 
-    // For return trip, the college is the pickup — use its coords as origin
-    const effectiveOriginLat = isReturnTrip ? campusLat : originLat;
-    const effectiveOriginLon = isReturnTrip ? campusLon : originLon;
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -127,10 +123,10 @@ const TripBooking = () => {
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
-          originAddress: isReturnTrip ? campus : pickup.trim(),
+          originAddress: pickup.trim(),
           campus,
-          originLat: effectiveOriginLat,
-          originLon: effectiveOriginLon,
+          originLat,
+          originLon,
           campusLat,
           campusLon,
           rideType,

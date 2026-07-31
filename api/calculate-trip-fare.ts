@@ -161,20 +161,33 @@ export default async function handler(req: any, res: any) {
     originCoords = route.origin;
     campusCoords = route.campusPoint;
   } catch {
-    distanceKm = getMockDistance(originAddress, campus);
     isEstimate = true;
     if (originLat !== undefined && originLon !== undefined) {
       originCoords = { lat: originLat, lon: originLon };
+    } else {
+      try {
+        const { geocodeAddress } = await import("./_osm.js");
+        const hit = await geocodeAddress(originAddress);
+        originCoords = { lat: hit.lat, lon: hit.lon };
+      } catch {
+        // ignore
+      }
     }
-    try {
-      if (campusLat !== undefined && campusLon !== undefined) {
-        campusCoords = { lat: campusLat, lon: campusLon };
-      } else {
+    if (campusLat !== undefined && campusLon !== undefined) {
+      campusCoords = { lat: campusLat, lon: campusLon };
+    } else {
+      try {
         const { getCampusCoords } = await import("./_osm.js");
         campusCoords = getCampusCoords(campus);
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
+    }
+    if (originCoords && campusCoords) {
+      const { haversineKm } = await import("./_osm.js");
+      distanceKm = haversineKm(originCoords, campusCoords) * 1.3;
+    } else {
+      distanceKm = getMockDistance(originAddress, campus);
     }
   }
 

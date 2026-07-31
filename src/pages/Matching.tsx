@@ -278,37 +278,21 @@ const Matching = () => {
     }
   }, [ride?.id, id, loading, navigate, refresh, ride]);
 
-const findCollegeCoords = (address: string | undefined, collegeList: Array<{ name: string; lat: number; lon: number }>) => {
-    if (!address) return null;
-    const addrLower = address.toLowerCase();
-    const college = collegeList.find((c) => 
-      c.name.toLowerCase().includes(addrLower) || 
-      addrLower.includes(c.name.toLowerCase()) ||
-      addrLower.includes(c.name.toLowerCase().split(" ")[0])
-    );
-    if (college) return { lat: college.lat, lon: college.lon };
-    return null;
-  };
-
   useEffect(() => {
-    if (!ride || colleges.length === 0) return;
-
-    useEffect(() => {
     if (!ride || colleges.length === 0) return;
 
     const findCollegeCoords = (address: string | undefined) => {
       if (!address) return null;
-      const addrLower = address.toLowerCase();
-      const college = colleges.find((c) => 
-        c.name.toLowerCase().includes(addrLower) || 
-        addrLower.includes(c.name.toLowerCase()) ||
-        addrLower.includes(c.name.toLowerCase().split(" ")[0])
-      );
+      const addr = address.toLowerCase();
+      const college = colleges.find((c) => {
+        const cName = c.name.toLowerCase();
+        return addr === cName || addr.includes(cName) || cName.includes(addr);
+      });
       if (college) {
         console.log("[Matching] Matched:", address, "->", college.name, college.lat, college.lon);
         return { lat: college.lat, lon: college.lon };
       }
-      console.log("[Matching] No match for:", address);
+      console.log("[Matching] No college match for:", address);
       return null;
     };
 
@@ -326,21 +310,35 @@ const findCollegeCoords = (address: string | undefined, collegeList: Array<{ nam
     // Pickup
     const pickupCollegeCoords = findCollegeCoords(ride.pickup);
     if (pickupCollegeCoords) {
+      console.log("[Matching] Pickup college coords:", pickupCollegeCoords);
       setPickupCoords(pickupCollegeCoords);
     } else if (!ride.pickupLatitude && ride.pickup) {
-      geocode(ride.pickup).then(setPickupCoords);
+      geocode(ride.pickup).then((coords) => {
+        console.log("[Matching] Pickup geocoded:", ride.pickup, "->", coords);
+        setPickupCoords(coords);
+      });
     } else if (ride.pickupLatitude && ride.pickupLongitude) {
+      console.log("[Matching] Pickup stored coords:", { lat: ride.pickupLatitude, lon: ride.pickupLongitude });
       setPickupCoords({ lat: ride.pickupLatitude, lon: ride.pickupLongitude });
+    } else {
+      console.log("[Matching] No pickup coords resolved for:", ride.pickup);
     }
 
     // Destination
     const destCollegeCoords = findCollegeCoords(ride.destination);
     if (destCollegeCoords) {
+      console.log("[Matching] Destination college coords:", destCollegeCoords);
       setCampusCoords(destCollegeCoords);
     } else if (!ride.destinationLatitude && ride.destination) {
-      geocode(ride.destination).then(setCampusCoords);
+      geocode(ride.destination).then((coords) => {
+        console.log("[Matching] Destination geocoded:", ride.destination, "->", coords);
+        setCampusCoords(coords);
+      });
     } else if (ride.destinationLatitude && ride.destinationLongitude) {
+      console.log("[Matching] Destination stored coords:", { lat: ride.destinationLatitude, lon: ride.destinationLongitude });
       setCampusCoords({ lat: ride.destinationLatitude, lon: ride.destinationLongitude });
+    } else {
+      console.log("[Matching] No destination coords resolved for:", ride.destination);
     }
   }, [ride?.id, ride?.pickup, ride?.destination, ride?.pickupLatitude, ride?.pickupLongitude, ride?.destinationLatitude, ride?.destinationLongitude, colleges]);
 
@@ -365,6 +363,9 @@ const pickupLat = pickupCoords?.lat ?? ride.pickupLatitude;
     const tripDistance = pickupLat && pickupLon && campusLat && campusLon
       ? haversineKm(pickupLat, pickupLon, campusLat, campusLon)
       : null;
+    if (tripDistance != null) {
+      console.log("[Matching] Distance", pickupLat, pickupLon, "->", campusLat, campusLon, "=", tripDistance, "km | ride:", ride.pickup, "|", ride.destination);
+    }
     const calculatedFare = tripDistance != null ? Math.ceil(tripDistance * 10) : null;
     const effectiveFare = ride.fareAmount ?? (ride.price || calculatedFare);
 

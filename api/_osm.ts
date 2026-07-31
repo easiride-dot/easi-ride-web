@@ -28,6 +28,18 @@ export interface GeoPoint {
   lon: number;
 }
 
+/** Great-circle (straight-line) distance in km between two points. */
+export function haversineKm(a: GeoPoint, b: GeoPoint): number {
+  const R = 6_371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const s =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 2 * R * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+
 export interface LocationSuggestion {
   address: string;
   lat: number;
