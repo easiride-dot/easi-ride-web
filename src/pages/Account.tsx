@@ -79,8 +79,7 @@ const Account = () => {
 
       await refresh();
       toast.success("Student ID uploaded. Your verification is now pending review.");
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast.error("Could not upload your student ID");
     } finally {
       e.target.value = "";
@@ -105,9 +104,8 @@ const Account = () => {
       await refresh();
       toast.success("Profile updated successfully");
       setEditProfileOpen(false);
-    } catch (error) {
+    } catch {
       toast.error("Failed to update profile");
-      console.error(error);
     } finally {
       setBusy(false);
     }

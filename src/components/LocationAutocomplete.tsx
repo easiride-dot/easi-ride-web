@@ -62,15 +62,13 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
         const { ok, data, error } = await parseApiJson<{ suggestions?: LocationSuggestion[]; error?: string }>(res);
 
         if (!ok) {
-          if (error) console.error("Location search failed:", error);
           setSuggestions([]);
           return;
         }
         if (data?.suggestions) {
           setSuggestions(data.suggestions);
         }
-      } catch (err) {
-        if (!cancelled) console.error("Failed to fetch suggestions", err);
+      } catch {
       } finally {
         if (!cancelled) setLoading(false);
       }

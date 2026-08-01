@@ -49,7 +49,6 @@ export const useProfile = () => {
       if (error) throw error;
 
       if (!data) {
-        console.warn("Profile not found in useProfile, signing out...");
         await signOut();
         return;
       }
@@ -57,7 +56,6 @@ export const useProfile = () => {
       setProfile(data);
       setFetchError(null);
     } catch (error) {
-      console.error("Error fetching profile:", error);
       if (isNetworkError(error)) {
         setFetchError("Could not reach the server. Check your internet or try again shortly.");
       } else {

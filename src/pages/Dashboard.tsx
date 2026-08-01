@@ -93,9 +93,7 @@ const Dashboard = () => {
         .eq("user_id" as any, user.id)
         .order("claimed_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching claimed seats:", error);
-      } else {
+      if (!error) {
         setClaimedSeats(data || []);
       }
       setLoadingClaimed(false);

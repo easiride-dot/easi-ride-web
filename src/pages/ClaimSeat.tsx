@@ -53,7 +53,6 @@ const ClaimSeat = () => {
         .maybeSingle();
 
       if (fetchError || !data) {
-        console.error("Failed to fetch ride:", fetchError);
         setError("This ride pool could not be found or no longer exists.");
       } else if (data.status !== "pending_friend_commitment") {
         setError("This pool is no longer accepting seat claims — it may have already been locked.");
@@ -91,7 +90,6 @@ const ClaimSeat = () => {
         });
 
       if (updateError) {
-        console.error("RPC Error:", updateError);
         toast.error(`Could not claim your seat: ${updateError.message || "The pool may have already been locked."}`);
         return;
       }

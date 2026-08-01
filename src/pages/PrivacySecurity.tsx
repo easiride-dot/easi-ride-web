@@ -40,9 +40,8 @@ const PrivacySecurity = () => {
       toast.success("Password updated successfully");
       setEditPasswordOpen(false);
       setNewPassword("");
-    } catch (error) {
+    } catch {
       toast.error("Failed to update password");
-      console.error(error);
     } finally {
       setBusy(false);
     }

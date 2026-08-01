@@ -4,8 +4,6 @@ import "./index.css";
 import "./map/maplibre-gl.css";
 import { registerServiceWorker } from "./lib/pushNotifications";
 
-registerServiceWorker().catch((error) => {
-  console.error("Service worker registration failed:", error);
-});
+registerServiceWorker().catch(() => {});
 
 createRoot(document.getElementById("root")!).render(<App />);

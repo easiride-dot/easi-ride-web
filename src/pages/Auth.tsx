@@ -105,9 +105,8 @@ const Auth = () => {
         setOnWaitlist(true);
         toast.success("You've been added to the waitlist");
       }
-    } catch (error) {
+    } catch {
       toast.error("Could not join waitlist. Try again.");
-      console.error(error);
     } finally {
       setWaitlistBusy(false);
     }
@@ -183,8 +182,7 @@ const Auth = () => {
               .from("profiles")
               .update({ student_id_url: publicUrl, verification_status: "pending" })
               .eq("id", authData.user.id);
-          } catch (uploadError) {
-            console.error("Upload error:", uploadError);
+          } catch {
             toast.error("Account created, but ID upload failed. Please update in profile.");
           }
         }
@@ -219,9 +217,8 @@ const Auth = () => {
 
       toast.success("Welcome back");
       navigate(from, { replace: true });
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
-      console.error(error);
     } finally {
       setBusy(false);
     }

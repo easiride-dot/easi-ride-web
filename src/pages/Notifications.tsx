@@ -52,8 +52,7 @@ const Notifications = () => {
 
         if (error) throw error;
         setNotifications(data || []);
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
+      } catch {
       } finally {
         setLoading(false);
       }
@@ -93,8 +92,7 @@ const Notifications = () => {
       try {
         const subscription = await getExistingPushSubscription();
         setPushEnabled(Boolean(subscription));
-      } catch (error) {
-        console.error("Error checking push subscription:", error);
+      } catch {
       }
     };
 
@@ -136,8 +134,7 @@ const Notifications = () => {
 
       if (error) throw error;
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch (error) {
-      console.error("Error marking all as read:", error);
+    } catch {
       toast.error("Could not update notifications");
     }
   };
@@ -156,8 +153,7 @@ const Notifications = () => {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
-    } catch (error) {
-      console.error("Error marking as read:", error);
+    } catch {
     }
   };
 

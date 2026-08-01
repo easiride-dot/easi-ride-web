@@ -194,7 +194,6 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
       .select()
       .single();
     if (error) {
-      console.error("assignDriver error:", error);
       throw new Error(error.message);
     }
     if (row) {

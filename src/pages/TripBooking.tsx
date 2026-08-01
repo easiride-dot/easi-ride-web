@@ -187,9 +187,8 @@ const TripBooking = () => {
 
       toast.success("Ride requested successfully!");
       navigate(`/matching/${data.id}`);
-    } catch (err) {
+    } catch {
       toast.error("Something went wrong. Please try again.");
-      console.error("Booking error:", err);
     } finally {
       setBooking(false);
     }

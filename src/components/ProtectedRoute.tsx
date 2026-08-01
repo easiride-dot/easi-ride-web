@@ -40,17 +40,14 @@ export const ProtectedRoute = ({ children }: Props) => {
         if (userIdRef.current !== user.id) return;
 
         if (error) {
-          console.error("Profile check failed:", error);
           setExists(true);
         } else if (!data) {
-          console.warn("User profile not found, signing out...");
           setExists(false);
           await signOut();
         } else {
           setExists(true);
         }
-      } catch (err) {
-        console.error("User verification failed:", err);
+      } catch {
         setExists(true);
       } finally {
         if (userIdRef.current === user.id) {
