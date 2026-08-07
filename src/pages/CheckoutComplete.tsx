@@ -34,7 +34,7 @@ const CheckoutComplete = () => {
           data: { session },
         } = await supabase.auth.getSession();
 
-        const response = await fetch("/api/monime-verify-checkout", {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monime?action=verify-checkout`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

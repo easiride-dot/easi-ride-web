@@ -1,0 +1,40 @@
+import { z } from "npm:zod@4.3.6";
+import { corsHeaders, jsonResponse, requireUser } from "../_shared/auth.ts";
+import { searchLocations } from "../_shared/osm.ts";
+
+const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
+
+const schema = z.object({
+  query: z.string().min(2).max(150).transform(sanitize),
+});
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+  if (req.method !== "GET") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
+
+  const guard = await requireUser(req);
+  if (guard instanceof Response) return guard;
+
+  const url = new URL(req.url);
+  const rawQuery = url.searchParams.get("query") ?? "";
+  if (rawQuery.length > 200) {
+    return jsonResponse({ error: "Search query too long" }, 400);
+  }
+
+  const parsed = schema.safeParse({ query: rawQuery });
+  if (!parsed.success) {
+    return jsonResponse({ error: parsed.error.issues[0].message }, 400);
+  }
+
+  try {
+    const suggestions = await searchLocations(parsed.data.query);
+    return jsonResponse({ suggestions });
+  } catch (error) {
+    console.error("Search API error:", error);
+    return jsonResponse({ error: "Failed to search locations" }, 500);
+  }
+});

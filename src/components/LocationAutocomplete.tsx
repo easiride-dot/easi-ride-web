@@ -53,7 +53,7 @@ export function LocationAutocomplete({ value, onChange, onSelect, placeholder = 
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
 
-        const res = await fetch(`/api/search-locations?query=${encodeURIComponent(value)}`, {
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/search-locations?query=${encodeURIComponent(value)}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
 

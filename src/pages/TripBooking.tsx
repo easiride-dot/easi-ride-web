@@ -69,10 +69,10 @@ const TripBooking = () => {
         try {
           const { latitude, longitude } = position.coords;
           
-          const { data: { session } } = await supabase.auth.getSession();
+          const { data: { session } } = supabase.auth.getSession();
           const token = session?.access_token;
 
-          const response = await fetch("/api/reverse-geocode", {
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reverse-geocode`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -117,7 +117,7 @@ const TripBooking = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const response = await fetch("/api/calculate-trip-fare", {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/calculate-trip-fare`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

@@ -441,7 +441,7 @@ const Dashboard = () => {
                       setPayingFor(participant.id);
                       try {
                         const { data: { session } } = await supabase.auth.getSession();
-                        const response = await fetch("/api/monime-create-checkout", {
+                        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monime?action=create-checkout`, {
                           method: "POST",
                           headers: {
                             "Content-Type": "application/json",

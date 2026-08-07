@@ -138,7 +138,7 @@ export function MapDisplay({
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const response = await fetch("/api/reverse-geocode", {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reverse-geocode`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

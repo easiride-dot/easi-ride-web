@@ -1,9 +1,9 @@
-// Forward-geocoding helper for booking. Talks to the server-side
-// /api/geocode-location route (which proxies Mapbox) so the token is not
-// exposed in the client bundle. Resolves a location name to coordinates so a
-// ride can store pickup/destination lat/lon at booking time.
+// Forward-geocoding helper for booking. Talks to the Supabase edge function
+// geocode-location (which proxies Mapbox) so the token is not exposed in the
+// client bundle. Resolves a location name to coordinates so a ride can store
+// pickup/destination lat/lon at booking time.
 
-import { supabase } from "@/integrations/supabase/client";
+import { callEdge } from "@/lib/edge";
 
 export type GeoCoords = { lat: number; lon: number };
 
@@ -15,20 +15,9 @@ export async function geocodeName(address: string): Promise<GeoCoords | null> {
   if (!address?.trim()) return null;
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-
-    const res = await fetch("/api/geocode-location", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ query: address.trim() }),
+    const data = await callEdge<{ coords: GeoCoords | null }>("geocode-location", {
+      body: { query: address.trim() },
     });
-
-    if (!res.ok) return null;
-    const data = await res.json();
     return data?.coords ? { lat: data.coords.lat, lon: data.coords.lon } : null;
   } catch {
     return null;

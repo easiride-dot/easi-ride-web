@@ -1,7 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import { rateLimit } from "./_rate-limit.js";
-import { distanceToCampusKm } from "./_osm.js";
+import { z } from "npm:zod@4.3.6";
+import { corsHeaders, jsonResponse, requireUser, createAdminSupabase } from "../_shared/auth.ts";
+import { distanceToCampusKm, geocodeAddress, getCampusCoords, haversineKm } from "../_shared/osm.ts";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -17,27 +16,6 @@ const schema = z.object({
   passenger_count: z.number().int().min(1).optional(),
   passengerCount: z.number().int().min(1).optional(),
 });
-
-const getAuthToken = (authorization?: string | string[]) => {
-  const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
-};
-
-export async function calculatePricing(
-  distanceKm: number,
-  rideType: "solo" | "shared",
-  passengerCount: number,
-  supabaseAdmin: any
-): Promise<{ gross: number; commission: number; driverNet: number }> {
-  const { fare } = await calculateFare(distanceKm, supabaseAdmin);
-  let gross = fare;
-  if (rideType === "shared") {
-    gross = gross * passengerCount;
-  }
-  const commission = 0;
-  const driverNet = gross - commission;
-  return { gross, commission, driverNet };
-}
 
 async function calculateFare(
   distanceKm: number,
@@ -67,10 +45,6 @@ async function calculateFare(
   };
 }
 
-// ============================================================
-// PLACEHOLDER: Approximate road distances (km) from known
-// Freetown pickup areas to each campus.
-// ============================================================
 const MOCK_DISTANCES: Record<string, Record<string, number>> = {
   "lumley":       { "Fourah Bay College": 14.2, "IPAM Tower Hill": 12.8, "Njala University": 182, "Limkokwing": 11.5 },
   "aberdeen":     { "Fourah Bay College": 12.1, "IPAM Tower Hill": 10.5, "Njala University": 180, "Limkokwing": 9.8  },
@@ -100,50 +74,26 @@ const getMockDistance = (origin: string, campus: string): number => {
   return DEFAULT_DISTANCE_KM;
 };
 
-export default async function handler(req: any, res: any) {
-  const contentLength = req.headers['content-length'];
-  if (contentLength && parseInt(contentLength, 10) > 10240) {
-    return res.status(413).json({ error: "Payload too large" });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
-  if (req.body && JSON.stringify(req.body).length > 10240) {
-    return res.status(413).json({ error: "Payload too large" });
-  }
-
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const token = getAuthToken(req.headers.authorization);
-  if (!token) {
-    return res.status(401).json({ error: "Authentication required" });
+  const guard = await requireUser(req);
+  if (guard instanceof Response) return guard;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
-
-  const getEnv = (name: string) => process.env[name] ?? "";
-
-  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
-
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ error: "Server configuration error" });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !user) {
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-
-  if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 30 }, user.id)) {
-    return res.status(429).json({ error: "Too many requests. Please try again later." });
-  }
-
-  const parsed = schema.safeParse(req.body);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message });
+    return jsonResponse({ error: parsed.error.issues[0].message }, 400);
   }
 
   const { originAddress, campus, originLat, originLon, campusLat, campusLon } = parsed.data;
@@ -166,7 +116,6 @@ export default async function handler(req: any, res: any) {
       originCoords = { lat: originLat, lon: originLon };
     } else {
       try {
-        const { geocodeAddress } = await import("./_osm.js");
         const hit = await geocodeAddress(originAddress);
         originCoords = { lat: hit.lat, lon: hit.lon };
       } catch {
@@ -177,29 +126,23 @@ export default async function handler(req: any, res: any) {
       campusCoords = { lat: campusLat, lon: campusLon };
     } else {
       try {
-        const { getCampusCoords } = await import("./_osm.js");
         campusCoords = getCampusCoords(campus);
       } catch {
         // ignore
       }
     }
     if (originCoords && campusCoords) {
-      const { haversineKm } = await import("./_osm.js");
       distanceKm = haversineKm(originCoords, campusCoords) * 1.3;
     } else {
       distanceKm = getMockDistance(originAddress, campus);
     }
   }
 
-  // Create admin client for reading pricing_config (bypass RLS)
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseAdmin = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : supabase;
+  const supabaseAdmin = createAdminSupabase();
 
   const { fare, surgeMode, surgeMultiplier } = await calculateFare(distanceKm, supabaseAdmin);
 
-  return res.status(200).json({
+  return jsonResponse({
     distanceKm: Number(distanceKm.toFixed(1)),
     fareAmount: fare,
     surgeMode,
@@ -210,4 +153,4 @@ export default async function handler(req: any, res: any) {
     rideType,
     passengerCount,
   });
-}
+});

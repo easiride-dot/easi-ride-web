@@ -1,23 +1,25 @@
-import { z } from "zod";
-import { rateLimit } from "./_rate-limit.js";
+import { z } from "npm:zod@4.3.6";
 
-const MAPBOX_TOKEN = process.env.VITE_MAPBOX_ACCESS_TOKEN;
-
-if (!MAPBOX_TOKEN) {
-  throw new Error("VITE_MAPBOX_ACCESS_TOKEN is not set");
-}
+const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? Deno.env.get("VITE_MAPBOX_ACCESS_TOKEN");
 
 const FREETOWN_BOUND = "-13.4000,8.3500,-13.1545,8.5800";
 
-const schema = z.object({
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, x-api-key, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const bodySchema = z.object({
   query: z.string().min(1).max(300),
 });
 
-const getAuthToken = (authorization?: string | string[]) => {
-  const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  const match = value?.match(/^Bearer\s+(.+)$/i);
-  return match?.[1] ?? null;
-};
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 async function mapboxPlaces(query: string, extra: Record<string, string>): Promise<any[]> {
   const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`);
@@ -39,29 +41,25 @@ async function mapboxPlaces(query: string, extra: Record<string, string>): Promi
   }
 }
 
-export default async function handler(req: any, res: any) {
-  const contentLength = req.headers["content-length"];
-  if (contentLength && parseInt(contentLength, 10) > 10240) {
-    return res.status(413).json({ error: "Payload too large" });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const token = getAuthToken(req.headers.authorization);
-  if (!token) {
-    return res.status(401).json({ error: "Missing auth token" });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
-  if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 30 }, token)) {
-    return res.status(429).json({ error: "Too many requests. Please try again later." });
-  }
-
-  const parsed = schema.safeParse(req.body);
+  const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message });
+    return jsonResponse({ error: parsed.error.issues[0].message }, 400);
   }
 
   const { query } = parsed.data;
@@ -74,15 +72,15 @@ export default async function handler(req: any, res: any) {
 
     const feature = hits[0];
     if (!feature?.center) {
-      return res.status(200).json({ coords: null, displayName: null });
+      return jsonResponse({ coords: null, displayName: null });
     }
 
-    return res.status(200).json({
+    return jsonResponse({
       coords: { lat: feature.center[1], lon: feature.center[0] },
       displayName: feature.place_name || query,
     });
   } catch (error) {
     console.error("Geocode-location error:", error);
-    return res.status(502).json({ error: "Failed to geocode location" });
+    return jsonResponse({ error: "Failed to geocode location" }, 502);
   }
-}
+});

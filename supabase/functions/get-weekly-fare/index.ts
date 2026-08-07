@@ -1,7 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
-import { rateLimit } from "./_rate-limit.js";
-import { distanceToCampusKm } from "./_osm.js";
+import { z } from "npm:zod@4.3.6";
+import { corsHeaders, jsonResponse, requireUser, createAdminSupabase } from "../_shared/auth.ts";
+import { distanceToCampusKm } from "../_shared/osm.ts";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -43,58 +42,29 @@ const getMockDistance = (origin: string, campus: string): number => {
   return DEFAULT_DISTANCE_KM;
 };
 
-const getAuthToken = (authorization?: string | string[]) => {
-  const value = Array.isArray(authorization) ? authorization[0] : authorization;
-  return value?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
-};
-
-export default async function handler(req: any, res: any) {
-  const contentLength = req.headers['content-length'];
-  if (contentLength && parseInt(contentLength, 10) > 10240) {
-    return res.status(413).json({ error: "Payload too large" });
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
-  if (req.body && JSON.stringify(req.body).length > 10240) {
-    return res.status(413).json({ error: "Payload too large" });
-  }
-
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const token = getAuthToken(req.headers.authorization);
-  if (!token) {
-    return res.status(401).json({ error: "Missing auth token" });
-  }
+  const guard = await requireUser(req);
+  if (guard instanceof Response) return guard;
 
-  const parsed = schema.safeParse(req.body);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
+  }
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message });
+    return jsonResponse({ error: parsed.error.issues[0].message }, 400);
   }
 
   const { originAddress, campus, originLat, originLon, campusLat, campusLon } = parsed.data;
-
-  const getEnv = (name: string) => process.env[name] ?? "";
-
-  const supabaseUrl = process.env.SUPABASE_URL || getEnv("VITE_SUPABASE_URL");
-  const supabaseKey = process.env.SUPABASE_ANON_KEY || getEnv("VITE_SUPABASE_PUBLISHABLE_KEY");
-
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ error: "Supabase environment variables not configured" });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !user) {
-    return res.status(401).json({ error: "Invalid auth token" });
-  }
-
-  if (!rateLimit(req, { intervalMs: 60 * 1000, maxRequests: 30 }, user.id)) {
-    return res.status(429).json({ error: "Too many requests. Please try again later." });
-  }
 
   let distanceKm = 0;
   let isEstimate = false;
@@ -107,12 +77,7 @@ export default async function handler(req: any, res: any) {
     isEstimate = true;
   }
 
-  // Use service role client for reading pricing_config (bypass RLS)
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseAdmin = serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey)
-    : supabase;
-
+  const supabaseAdmin = createAdminSupabase();
   let perKmRate = 7;
 
   try {
@@ -120,7 +85,6 @@ export default async function handler(req: any, res: any) {
       .from("pricing_config")
       .select("per_km_rate")
       .single();
-
     if (!error && config?.per_km_rate) {
       perKmRate = Number(config.per_km_rate);
     }
@@ -128,10 +92,9 @@ export default async function handler(req: any, res: any) {
     // fallback to default per_km_rate
   }
 
-  // Weekly = distance × 6 days × per_km_rate (no surge)
   const weeklyPrice = Math.ceil(distanceKm * 6 * perKmRate);
 
-  return res.status(200).json({
+  return jsonResponse({
     weeklyPrice,
     distanceKm: Number(distanceKm.toFixed(1)),
     isEstimate,
@@ -139,4 +102,4 @@ export default async function handler(req: any, res: any) {
     originAddress,
     campus,
   });
-}
+});

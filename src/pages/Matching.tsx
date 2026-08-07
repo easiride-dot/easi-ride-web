@@ -35,7 +35,7 @@ const Matching = () => {
     setPaying(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch("/api/monime-create-checkout", {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/monime?action=create-checkout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -144,9 +144,8 @@ const Matching = () => {
   const handleCancelRequest = async () => {
     if (!ride) return;
     try {
-      const apiBase = import.meta.env.VITE_API_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`${apiBase}/api/dispatch`, {
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dispatch`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -209,9 +208,8 @@ const Matching = () => {
     setRequestedDriver(driver || null);
 
     try {
-      const apiBase = import.meta.env.VITE_API_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`${apiBase}/api/dispatch`, {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dispatch`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

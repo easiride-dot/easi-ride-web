@@ -1,21 +1,14 @@
-/** OpenStreetMap geocoding (Nominatim) and routing (OSRM) helpers — server-side only. */
+// Shared OpenStreetMap / routing helpers for edge functions.
+// Copy of concepts from the easi-ride/api/_osm.ts, adapted for Deno.
 
 export const FREETOWN_CENTER = { lat: 8.4844, lon: -13.2344 };
 
-/**
- * Greater Freetown service area.
- * viewbox: left (min lon), top (max lat), right (max lon), bottom (min lat)
- * Eastern edge: 8°25'48.5"N 13°09'16.2"W → lon -13.1545 (decimal)
- */
 export const FREETOWN_VIEWBOX = {
-  left: -13.40,
+  left: -13.4,
   top: 8.58,
   right: -13.1545,
   bottom: 8.35,
 };
-
-/** Eastern boundary anchor (8°25'48.5"N 13°09'16.2"W) — for reference / maps */
-export const FREETOWN_EAST_EDGE = { lat: 8.430139, lon: -13.1545 };
 
 export const CAMPUS_COORDS: Record<string, { lat: number; lon: number }> = {
   "Fourah Bay College": { lat: 8.477917, lon: -13.221056 },
@@ -28,7 +21,6 @@ export interface GeoPoint {
   lon: number;
 }
 
-/** Great-circle (straight-line) distance in km between two points. */
 export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   const R = 6_371;
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -47,31 +39,26 @@ export interface LocationSuggestion {
 }
 
 const getNominatimBase = () =>
-  (process.env.NOMINATIM_BASE_URL ?? "https://nominatim.openstreetmap.org").replace(/\/$/, "");
+  (Deno.env.get("NOMINATIM_BASE_URL") ?? "https://nominatim.openstreetmap.org").replace(/\/$/, "");
 
 const getOsrmBase = () =>
-  (process.env.OSRM_BASE_URL ?? "https://router.project-osrm.org").replace(/\/$/, "");
+  (Deno.env.get("OSRM_BASE_URL") ?? "https://router.project-osrm.org").replace(/\/$/, "");
 
 const getUserAgent = () =>
-  process.env.NOMINATIM_USER_AGENT ?? "EasiRide/1.0 (student campus rides; https://easi-ride-web.vercel.app)";
+  Deno.env.get("NOMINATIM_USER_AGENT") ??
+  "EasiRide/1.0 (student campus rides; https://easi-ride-web.vercel.app)";
 
 async function nominatimFetch(path: string, params: Record<string, string>) {
   const url = new URL(`${getNominatimBase()}${path}`);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-
   const response = await fetch(url.toString(), {
-    headers: {
-      "User-Agent": getUserAgent(),
-      Accept: "application/json",
-    },
+    headers: { "User-Agent": getUserAgent(), Accept: "application/json" },
   });
-
   if (!response.ok) {
     throw new Error(`Nominatim request failed (${response.status})`);
   }
-
   return response.json();
 }
 
@@ -89,7 +76,6 @@ function formatShortAddress(item: {
   return item.display_name?.split(",").slice(0, 3).join(",").trim() || "Freetown";
 }
 
-/** Forward geocode a free-text address in Freetown. */
 export async function geocodeAddress(query: string): Promise<GeoPoint & { displayName: string }> {
   const q = `${query}, Freetown, Sierra Leone`;
   const { left, top, right, bottom } = FREETOWN_VIEWBOX;
@@ -101,11 +87,9 @@ export async function geocodeAddress(query: string): Promise<GeoPoint & { displa
     viewbox: `${left},${top},${right},${bottom}`,
     bounded: "0",
   });
-
   if (!Array.isArray(results) || results.length === 0) {
     throw new Error(`Could not find location: ${query}`);
   }
-
   const hit = results[0];
   return {
     lat: parseFloat(hit.lat),
@@ -114,7 +98,6 @@ export async function geocodeAddress(query: string): Promise<GeoPoint & { displa
   };
 }
 
-/** Reverse geocode coordinates to a short place name. */
 export async function reverseGeocode(lat: number, lon: number): Promise<string> {
   const result = await nominatimFetch("/reverse", {
     lat: String(lat),
@@ -123,15 +106,12 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
     zoom: "18",
     addressdetails: "1",
   });
-
   if (!result || result.error) {
     throw new Error("Location name not found");
   }
-
   return formatShortAddress(result);
 }
 
-/** Search addresses for autocomplete (restricted to Freetown). */
 export async function searchLocations(query: string, limit = 5): Promise<LocationSuggestion[]> {
   const { left, top, right, bottom } = FREETOWN_VIEWBOX;
   const results = await nominatimFetch("/search", {
@@ -143,9 +123,7 @@ export async function searchLocations(query: string, limit = 5): Promise<Locatio
     bounded: "1",
     addressdetails: "1",
   });
-
   if (!Array.isArray(results)) return [];
-
   return results.map((item: { lat: string; lon: string; display_name?: string; address?: Record<string, string> }) => ({
     address: formatShortAddress(item),
     lat: parseFloat(item.lat),
@@ -153,26 +131,16 @@ export async function searchLocations(query: string, limit = 5): Promise<Locatio
   }));
 }
 
-/** Road distance in km via OSRM (OpenStreetMap road network). */
-export async function routeDistanceKm(
-  origin: GeoPoint,
-  destination: GeoPoint
-): Promise<number> {
+export async function routeDistanceKm(origin: GeoPoint, destination: GeoPoint): Promise<number> {
   const url = `${getOsrmBase()}/route/v1/driving/${origin.lon},${origin.lat};${destination.lon},${destination.lat}?overview=false`;
-
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-
+  const response = await fetch(url, { headers: { Accept: "application/json" } });
   if (!response.ok) {
     throw new Error(`OSRM routing failed (${response.status})`);
   }
-
   const data = await response.json();
   if (data.code !== "Ok" || !data.routes?.[0]?.distance) {
     throw new Error("Routing failed");
   }
-
   return data.routes[0].distance / 1000;
 }
 
@@ -184,7 +152,6 @@ export function getCampusCoords(campus: string): GeoPoint {
   return dest;
 }
 
-/** Geocode origin if needed, then compute driving distance to campus in km. */
 export async function distanceToCampusKm(
   originAddress: string,
   campus: string,
@@ -195,7 +162,6 @@ export async function distanceToCampusKm(
 ): Promise<{ distanceKm: number; origin: GeoPoint; campusPoint: GeoPoint; geocoded: boolean }> {
   let origin: GeoPoint;
   let geocoded = false;
-
   if (originLat != null && originLon != null) {
     origin = { lat: originLat, lon: originLon };
   } else {
@@ -203,12 +169,10 @@ export async function distanceToCampusKm(
     origin = { lat: hit.lat, lon: hit.lon };
     geocoded = true;
   }
-
   const campusPoint =
     campusLat != null && campusLon != null
       ? { lat: campusLat, lon: campusLon }
       : getCampusCoords(campus);
   const distanceKm = await routeDistanceKm(origin, campusPoint);
-
   return { distanceKm, origin, campusPoint, geocoded };
 }
