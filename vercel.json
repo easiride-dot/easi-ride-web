@@ -1,6 +1,30 @@
 {
   "rewrites": [
     {
+      "source": "/api/monime-create-checkout",
+      "destination": "/api/monime?__monime=create-checkout"
+    },
+    {
+      "source": "/api/monime-verify-checkout",
+      "destination": "/api/monime?__monime=verify-checkout"
+    },
+    {
+      "source": "/api/monime-checkout-success",
+      "destination": "/api/monime?__monime=checkout-success"
+    },
+    {
+      "source": "/api/monime-checkout-cancel",
+      "destination": "/api/monime?__monime=checkout-cancel"
+    },
+    {
+      "source": "/api/monime-stk-push",
+      "destination": "/api/monime?__monime=stk-push"
+    },
+    {
+      "source": "/api/monime-webhook",
+      "destination": "/api/monime?__monime=webhook"
+    },
+    {
       "source": "/((?!api/|@vite/|@react-refresh|src/|node_modules/|assets/).*)",
       "destination": "/index.html"
     }
