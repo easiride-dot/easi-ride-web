@@ -155,6 +155,8 @@ export const RideProvider = ({ children }: { children: ReactNode }) => {
         p_price: data.price,
         p_pickup_latitude: data.pickupLatitude,
         p_pickup_longitude: data.pickupLongitude,
+        p_destination_latitude: data.destinationLatitude,
+        p_destination_longitude: data.destinationLongitude,
       })
 
     if (error) {

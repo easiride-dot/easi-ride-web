@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { parseApiJson } from "@/lib/parseApiResponse";
+import { geocodeName } from "@/lib/geocode";
 
 const Request = () => {
   const navigate = useNavigate();
@@ -99,16 +100,40 @@ const Request = () => {
       ? `${pickup.trim()} (${pickupDetails.trim()})`
       : pickup.trim();
 
+    const pickupName = isReturnTrip ? destination : customLocation;
+    const destinationName = isReturnTrip ? customLocation : destination;
+
+    // Resolve coordinates for both pickup and destination so the driver
+    // map can render an accurate route. Device-detected pickup coords win;
+    // otherwise geocode the name. Destination uses college coords when known,
+    // then falls back to Mapbox geocoding.
+    const resolvePickup = async (): Promise<{ lat?: number; lon?: number }> => {
+      if (!isReturnTrip && pickupCoords) return pickupCoords;
+      const college = colleges.find((c) => c.name === pickupName);
+      if (college?.lat && college?.lon) return { lat: college.lat, lon: college.lon };
+      const g = await geocodeName(pickupName);
+      return g ? { lat: g.lat, lon: g.lon } : {};
+    };
+    const resolveDestination = async (): Promise<{ lat?: number; lon?: number }> => {
+      const college = colleges.find((c) => c.name === destinationName);
+      if (college?.lat && college?.lon) return { lat: college.lat, lon: college.lon };
+      const g = await geocodeName(destinationName);
+      return g ? { lat: g.lat, lon: g.lon } : {};
+    };
+
     setSubmitting(true);
     try {
+      const [pickupGeo, destGeo] = await Promise.all([resolvePickup(), resolveDestination()]);
       const ride = await createRide({
-        pickup: isReturnTrip ? destination : customLocation,
-        destination: isReturnTrip ? customLocation : destination,
+        pickup: pickupName,
+        destination: destinationName,
         timeSlot,
         type: rideType,
         price: 0,
-        pickupLatitude: pickupCoords?.lat,
-        pickupLongitude: pickupCoords?.lon,
+        pickupLatitude: pickupGeo.lat,
+        pickupLongitude: pickupGeo.lon,
+        destinationLatitude: destGeo.lat,
+        destinationLongitude: destGeo.lon,
       });
 
       if (!ride) {

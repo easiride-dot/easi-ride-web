@@ -16,6 +16,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useColleges } from "@/hooks/useColleges";
 import { ShieldAlert } from "lucide-react";
 import { parseApiJson } from "@/lib/parseApiResponse";
+import { geocodeName } from "@/lib/geocode";
 // import { MapDisplay } from "@/components/MapDisplay"; // Map removed
 
 interface FareResult {
@@ -164,15 +165,44 @@ const TripBooking = () => {
         ? `${pickup.trim()} (${pickupDetails.trim()})`
         : pickup.trim();
 
+      const pickupName = isReturnTrip ? campus : customLocation;
+      const destinationName = isReturnTrip ? customLocation : campus;
+
+      // Resolve coordinates for both ends so the driver map can render an
+      // accurate route. Prefer fare-computed / detected coords, then college
+      // coords, then Mapbox geocoding of the name.
+      const resolvePickup = async (): Promise<{ lat?: number; lon?: number }> => {
+        if (!isReturnTrip && originLat && originLon) return { lat: originLat, lon: originLon };
+        if (!isReturnTrip && fare?.originCoords) return fare.originCoords;
+        if (isReturnTrip) {
+          const college = colleges.find((c) => c.name === pickupName);
+          if (college?.lat && college?.lon) return { lat: college.lat, lon: college.lon };
+        }
+        const g = await geocodeName(pickupName);
+        return g ? { lat: g.lat, lon: g.lon } : {};
+      };
+      const resolveDestination = async (): Promise<{ lat?: number; lon?: number }> => {
+        const college = colleges.find((c) => c.name === destinationName);
+        if (college?.lat && college?.lon) return { lat: college.lat, lon: college.lon };
+        const g = await geocodeName(destinationName);
+        return g ? { lat: g.lat, lon: g.lon } : {};
+      };
+
+      const [pickupGeo, destGeo] = await Promise.all([resolvePickup(), resolveDestination()]);
+
       const { data, error } = await supabase
         .rpc("create_trip_booking", {
-          p_pickup: isReturnTrip ? campus : customLocation,
-          p_destination: isReturnTrip ? customLocation : campus,
+          p_pickup: pickupName,
+          p_destination: destinationName,
           p_time_slot: timeSlot,
           p_price: fare.fareAmount,
           p_type: rideType,
           p_distance_km: fare.distanceKm,
           p_fare_amount: fare.fareAmount,
+          p_pickup_latitude: pickupGeo.lat,
+          p_pickup_longitude: pickupGeo.lon,
+          p_destination_latitude: destGeo.lat,
+          p_destination_longitude: destGeo.lon,
         });
 
       if (error) {

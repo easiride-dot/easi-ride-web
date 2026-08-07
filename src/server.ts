@@ -22,6 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 app.post("/api/reverse-geocode", await loadHandler("/api/reverse-geocode.ts"));
+app.post("/api/geocode-location", await loadHandler("/api/geocode-location.ts"));
 app.post("/api/calculate-trip-fare", await loadHandler("/api/calculate-trip-fare.ts"));
 app.get("/api/search-locations", await loadHandler("/api/search-locations.ts"));
 app.post("/api/monime-create-checkout", await loadHandler("/api/monime-create-checkout.ts"));
