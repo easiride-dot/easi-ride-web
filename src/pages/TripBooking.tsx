@@ -89,15 +89,15 @@ const TripBooking = () => {
             setOriginLon(longitude);
             toast.success("Location detected", { id: toastId });
           } else {
-            toast.dismiss(toastId);
+            toast.error(error || "Could not detect location", { id: toastId });
           }
           setFare(null);
         } catch (error) {
-          toast.dismiss(toastId);
+          toast.error(error instanceof Error ? error.message : "Failed to detect location", { id: toastId });
         }
       },
-      () => {
-        toast.dismiss(toastId);
+      (error) => {
+        toast.error("Please allow location access in your browser settings.", { id: toastId });
       }
     );
   };
