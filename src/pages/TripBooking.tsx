@@ -69,7 +69,7 @@ const TripBooking = () => {
         try {
           const { latitude, longitude } = position.coords;
           
-          const { data: { session } } = supabase.auth.getSession();
+          const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
 
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reverse-geocode`, {
