@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.dispatch]
 verify_jwt = false
+
+[functions.route]
+verify_jwt = false

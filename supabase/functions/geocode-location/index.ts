@@ -1,4 +1,5 @@
 import { z } from "npm:zod@4.3.6";
+import { geocodeAddress } from "../_shared/osm.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? Deno.env.get("VITE_MAPBOX_ACCESS_TOKEN");
 
@@ -70,15 +71,27 @@ Deno.serve(async (req) => {
       hits = await mapboxPlaces(query, { limit: "1", country: "sl" });
     }
 
-    const feature = hits[0];
-    if (!feature?.center) {
-      return jsonResponse({ coords: null, displayName: null });
+    if (hits.length > 0) {
+      const feature = hits[0];
+      if (feature?.center) {
+        return jsonResponse({
+          coords: { lat: feature.center[1], lon: feature.center[0] },
+          displayName: feature.place_name || query,
+        });
+      }
     }
 
-    return jsonResponse({
-      coords: { lat: feature.center[1], lon: feature.center[0] },
-      displayName: feature.place_name || query,
-    });
+    // Mapbox found nothing (token invalid, over-restricted query, or no match
+    // in Freetown). Fall back to OpenStreetMap/Nominatim forward geocoding.
+    try {
+      const osm = await geocodeAddress(query);
+      return jsonResponse({
+        coords: { lat: osm.lat, lon: osm.lon },
+        displayName: osm.displayName,
+      });
+    } catch {
+      return jsonResponse({ coords: null, displayName: null });
+    }
   } catch (error) {
     console.error("Geocode-location error:", error);
     return jsonResponse({ error: "Failed to geocode location" }, 502);

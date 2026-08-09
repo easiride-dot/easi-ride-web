@@ -1,5 +1,5 @@
 import { z } from "npm:zod@4.3.6";
-import { corsHeaders, jsonResponse, requireUser } from "../_shared/auth.ts";
+import { corsHeaders, jsonResponse } from "../_shared/auth.ts";
 import { searchLocations, searchLocationsMapbox } from "../_shared/osm.ts";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
@@ -8,6 +8,9 @@ const schema = z.object({
   query: z.string().min(2).max(150).transform(sanitize),
 });
 
+// Public endpoint — place autocomplete needs to work for anonymous and
+// logged-out visitors, so we do NOT require a JWT here (unlike most APIs).
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -15,9 +18,6 @@ Deno.serve(async (req) => {
   if (req.method !== "GET") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
-
-  const guard = await requireUser(req);
-  if (guard instanceof Response) return guard;
 
   const url = new URL(req.url);
   const rawQuery = url.searchParams.get("query") ?? "";
