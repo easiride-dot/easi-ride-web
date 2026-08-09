@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Source, Layer } from "react-map-gl/maplibre";
+import { Source, Layer } from "./gl";
 
 interface RouteLayerProps {
   points: [number, number][];

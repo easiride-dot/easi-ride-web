@@ -1,6 +1,81 @@
 // Shared OpenStreetMap / routing helpers for edge functions.
 // Copy of concepts from the easi-ride/api/_osm.ts, adapted for Deno.
 
+// ── Mapbox ─────────────────────────────────────────────────────────────────
+// When MAPBOX_ACCESS_TOKEN is set the geocoding functions below use Mapbox's
+// Geocoding API for higher-quality, Freetown-biased results. The OSM/Nominatim
+// helpers are still exported as a fallback when no token is configured.
+
+const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN");
+
+const FREETOWN_BBOX = "-13.4000,8.3500,-13.1545,8.5800"; // left,bottom,right,top
+
+async function mapboxPlaces(
+  query: string,
+  extra: Record<string, string>,
+): Promise<any[]> {
+  if (!MAPBOX_TOKEN) return [];
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`,
+  );
+  url.searchParams.set("access_token", MAPBOX_TOKEN);
+  for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Mapbox error (${res.status})`);
+    const data = await res.json();
+    return Array.isArray(data?.features) ? data.features : [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Search locations via Mapbox Places (returns [] when no token is set). */
+export async function searchLocationsMapbox(
+  query: string,
+  limit = 5,
+): Promise<LocationSuggestion[]> {
+  if (!MAPBOX_TOKEN) return [];
+  // Try Freetown bbox first, fall back to country-wide Sierra Leone
+  let hits = await mapboxPlaces(query, {
+    limit: String(limit),
+    bbox: FREETOWN_BBOX,
+  });
+  if (hits.length === 0) {
+    hits = await mapboxPlaces(query, { limit: String(limit), country: "sl" });
+  }
+  return hits
+    .filter((f: any) => f?.center)
+    .map((f: any) => ({
+      address: f.place_name || f.text || query,
+      lat: f.center[1] as number,
+      lon: f.center[0] as number,
+    }));
+}
+
+/** Reverse geocode via Mapbox (returns null when no token is set). */
+export async function reverseGeocodeMapbox(
+  lat: number,
+  lon: number,
+): Promise<string | null> {
+  if (!MAPBOX_TOKEN) return null;
+  const hits = await mapboxPlaces(`${lon},${lat}`, {
+    limit: "1",
+    types: "address,place,neighborhood",
+  });
+  const feature = hits[0];
+  if (!feature) return null;
+  return (feature.place_name || feature.text || null) as string | null;
+}
+
+// ── OpenStreetMap (Nominatim) ───────────────────────────────────────────────
+
 export const FREETOWN_CENTER = { lat: 8.4844, lon: -13.2344 };
 
 export const FREETOWN_VIEWBOX = {

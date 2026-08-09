@@ -1,6 +1,6 @@
 import { z } from "npm:zod@4.3.6";
 import { corsHeaders, jsonResponse, requireUser } from "../_shared/auth.ts";
-import { reverseGeocode } from "../_shared/osm.ts";
+import { reverseGeocode, reverseGeocodeMapbox } from "../_shared/osm.ts";
 
 const schema = z.object({
   lat: z.number().min(-90).max(90),
@@ -30,7 +30,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const placeName = await reverseGeocode(parsed.data.lat, parsed.data.lon);
+    const { lat, lon } = parsed.data;
+
+    // Prefer Mapbox Geocoding API; fall back to Nominatim/OSM when no token.
+    const mapboxResult = await reverseGeocodeMapbox(lat, lon);
+    const placeName = mapboxResult ?? await reverseGeocode(lat, lon);
+
     return jsonResponse({ placeName });
   } catch (error) {
     console.error("Reverse geocode error:", error);

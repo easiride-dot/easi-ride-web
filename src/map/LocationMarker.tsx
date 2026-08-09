@@ -1,4 +1,4 @@
-import { Marker } from "react-map-gl/maplibre";
+import { Marker } from "./gl";
 
 type MarkerType = "driver" | "pickup" | "destination" | "campus";
 

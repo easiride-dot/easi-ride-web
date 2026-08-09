@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useMap } from "react-map-gl/maplibre";
+import { useMap } from "./gl";
 import { Plus, Minus, Compass, Crosshair } from "lucide-react";
 
 export function MapControls() {
