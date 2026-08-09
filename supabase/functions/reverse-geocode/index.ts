@@ -1,6 +1,7 @@
 import { z } from "npm:zod@4.3.6";
-import { corsHeaders, jsonResponse, requireUser } from "../_shared/auth.ts";
-import { reverseGeocode, reverseGeocodeMapbox } from "../_shared/osm.ts";
+import { corsHeaders, jsonResponse } from "../_shared/auth.ts";
+import { reverseGeocode } from "../_shared/osm.ts";
+import { googleReverseGeocode } from "../_shared/google.ts";
 
 const schema = z.object({
   lat: z.number().min(-90).max(90),
@@ -14,9 +15,6 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
-
-  const guard = await requireUser(req);
-  if (guard instanceof Response) return guard;
 
   let body: unknown;
   try {
@@ -32,9 +30,9 @@ Deno.serve(async (req) => {
   try {
     const { lat, lon } = parsed.data;
 
-    // Prefer Mapbox Geocoding API; fall back to Nominatim/OSM when no token.
-    const mapboxResult = await reverseGeocodeMapbox(lat, lon);
-    const placeName = mapboxResult ?? await reverseGeocode(lat, lon);
+    // Prefer Google Geocoding; fall back to Nominatim/OSM when no result.
+    const googlePlace = await googleReverseGeocode(lat, lon);
+    const placeName = googlePlace ?? await reverseGeocode(lat, lon);
 
     return jsonResponse({ placeName });
   } catch (error) {

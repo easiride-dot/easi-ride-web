@@ -1,6 +1,7 @@
 import { z } from "npm:zod@4.3.6";
 import { corsHeaders, jsonResponse } from "../_shared/auth.ts";
-import { searchLocations, searchLocationsMapbox } from "../_shared/osm.ts";
+import { searchLocations } from "../_shared/osm.ts";
+import { googleSearchLocations } from "../_shared/google.ts";
 
 const sanitize = (val: string) => val.replace(/<[^>]*>/g, "").trim();
 
@@ -31,9 +32,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Prefer Mapbox Places for higher-quality, Freetown-biased suggestions.
-    // Falls back to Nominatim/OSM when MAPBOX_ACCESS_TOKEN is not set.
-    let suggestions = await searchLocationsMapbox(parsed.data.query);
+    // Prefer Google Places Autocomplete for higher-quality, Freetown-biased
+    // suggestions. Falls back to Nominatim/OSM when Google returns nothing.
+    let suggestions = await googleSearchLocations(parsed.data.query);
     if (suggestions.length === 0) {
       suggestions = await searchLocations(parsed.data.query);
     }
