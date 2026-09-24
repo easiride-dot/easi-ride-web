@@ -1,14 +1,16 @@
 import { Link, useLocation } from "react-router-dom";
-import { Car } from "lucide-react";
+import brandLogo from "@/assets/brand-logo.png";
 
 export const Logo = ({ className = "" }: { className?: string }) => {
   const location = useLocation();
   const onLanding = location.pathname === "/";
   const content = (
     <>
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-cta">
-        <Car className="h-4 w-4" strokeWidth={2.5} />
-      </div>
+      <img
+        src={brandLogo}
+        alt="Easi Ride logo"
+        className="h-8 w-8 rounded-lg object-cover shadow-cta"
+      />
       <span className="font-display text-lg font-semibold tracking-tight">
         Easi<span className="text-muted-foreground">Ride</span>
       </span>
