@@ -182,8 +182,3 @@
 @keyframes ping-slow {
   75%, 100% { transform: scale(2); opacity: 0; }
 }
-
-/* MapLibre overrides */
-.maplibregl-ctrl-attrib {
-  display: none !important;
-}

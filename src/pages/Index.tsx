@@ -14,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 
+const WHATSAPP_URL = "https://wa.me/23272804884";
+
 const steps = [
   { icon: MapPin, title: "Enter your location", desc: "Tell us where to pick you up — home, hostel or hangout." },
   { icon: Sparkles, title: "Choose your ride", desc: "Shared with classmates or solo. You decide the vibe." },
@@ -28,11 +30,11 @@ const Index = () => {
         <div className="container flex h-16 items-center justify-between">
           <Logo />
           <div className="flex items-center gap-2">
-            <Link to="/auth" className="hidden text-sm text-[#9A9A9A] hover:text-[#FAFAFA] sm:block">
-              Sign in
-            </Link>
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="hidden text-sm text-[#9A9A9A] hover:text-[#FAFAFA] sm:block">
+              Chat on WhatsApp
+            </a>
             <Button asChild size="sm">
-              <Link to="/request">Request a ride</Link>
+              <a href={WHATSAPP_URL} target="_blank" rel="noreferrer">Request a ride</a>
             </Button>
           </div>
         </div>
@@ -63,16 +65,18 @@ const Index = () => {
             </p>
 
             {/* Destination pill */}
-            <Link
-              to="/request"
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group flex items-center gap-3 rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] p-4 transition-colors hover:border-[#383838]"
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1A1A1A] border border-[#2A2A2A]">
                 <MapPin className="h-5 w-5 text-[#9A9A9A]" />
               </span>
-              <span className="flex-1 text-base text-[#9A9A9A]">Enter your destination</span>
+              <span className="flex-1 text-base text-[#9A9A9A]">Tap to book your ride</span>
               <ArrowRight className="h-5 w-5 text-[#9A9A9A] transition-transform group-hover:translate-x-0.5" />
-            </Link>
+            </a>
 
             <div className="flex items-center gap-6 pt-2 text-xs text-[#7A7A7A]">
               <div className="flex items-center gap-2">
@@ -86,8 +90,10 @@ const Index = () => {
 
           {/* Wallet / Credits cards — mirror the app home */}
           <div className="animate-fade-up space-y-4 [animation-delay:120ms]">
-            <Link
-              to="/checkout/weekly"
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group flex items-center gap-4 rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] p-5 transition-colors hover:border-[#383838]"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111111] border border-[#2A2A2A]">
@@ -98,10 +104,12 @@ const Index = () => {
                 <span className="mt-0.5 block text-xs text-[#7A7A7A]">Pay once, ride all week</span>
               </span>
               <ChevronRight className="h-5 w-5 text-[#7A7A7A]" />
-            </Link>
+            </a>
 
-            <Link
-              to="/trip/book"
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group flex items-center gap-4 rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] p-5 transition-colors hover:border-[#383838]"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#111111] border border-[#2A2A2A]">
@@ -112,10 +120,12 @@ const Index = () => {
                 <span className="mt-0.5 block text-xs text-[#7A7A7A]">One trip, one payment</span>
               </span>
               <ChevronRight className="h-5 w-5 text-[#7A7A7A]" />
-            </Link>
+            </a>
 
-            <Link
-              to="/request"
+            <a
+              href={WHATSAPP_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group flex items-center gap-4 rounded-2xl border border-[#22C55E]/60 bg-[#22C55E]/10 p-5 transition-colors hover:border-[#22C55E]"
             >
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#22C55E]/25">
@@ -126,7 +136,7 @@ const Index = () => {
                 <span className="mt-0.5 block text-xs text-[#9A9A9A]">Verified driver, up to 5 min</span>
               </span>
               <ChevronRight className="h-5 w-5 text-[#9A9A9A]" />
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -191,7 +201,7 @@ const Index = () => {
                 ))}
               </ul>
               <Button asChild className="w-full bg-[#FAFAFA] text-[#0B0B0B] hover:bg-[#FAFAFA]/90" size="lg">
-                <Link to="/checkout/weekly">See my weekly price</Link>
+                <a href={WHATSAPP_URL} target="_blank" rel="noreferrer">See my weekly price</a>
               </Button>
             </div>
 
@@ -217,7 +227,7 @@ const Index = () => {
                 ))}
               </ul>
               <Button asChild className="w-full bg-[#FAFAFA] text-[#0B0B0B] hover:bg-[#FAFAFA]/90" size="lg">
-                <Link to="/trip/book">Book a trip</Link>
+                <a href={WHATSAPP_URL} target="_blank" rel="noreferrer">Book a trip</a>
               </Button>
             </div>
           </div>
@@ -236,7 +246,7 @@ const Index = () => {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button asChild className="bg-[#FAFAFA] text-[#0B0B0B] hover:bg-[#FAFAFA]/90" size="xl">
-                <Link to="/request">Request your first ride</Link>
+                <a href={WHATSAPP_URL} target="_blank" rel="noreferrer">Request your first ride</a>
               </Button>
               <Button asChild variant="outline" size="xl">
                 <a href="https://wa.me/23272804884" target="_blank" rel="noreferrer">
